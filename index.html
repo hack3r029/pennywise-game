@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Vem Flutuar 🎈</title>
+
+<style>
+body{
+    margin:0;
+    background:#6db7ff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family:monospace;
+}
+canvas{
+    image-rendering:pixelated;
+    border:4px solid #222;
+    background:#9dd9ff;
+}
+</style>
+</head>
+
+<body>
+<canvas id="game"></canvas>
+
+<script>
+// ================= CONFIG =================
+const SCALE = 3;
+const W = 160;
+const H = 240;
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = W * SCALE;
+canvas.height = H * SCALE;
+ctx.scale(SCALE, SCALE);
+ctx.font = "8px monospace";
+
+// ================= ESTADO =================
+let state = "menu";
+let score = 0;
+let coins = Number(localStorage.getItem("coins")) || 0;
+let best = Number(localStorage.getItem("best")) || 0;
+
+let canTap = true;
+let audioCtx = null;
+let frame = 0;
+
+// ================= AUDIO =================
+function initAudio(){
+    if(!audioCtx){
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+function beep(freq, time){
+    if(!audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "square";
+    o.frequency.value = freq;
+    g.gain.value = 0.04;
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + time);
+}
+function loseMusic(){
+    beep(220,0.25);
+    setTimeout(()=>beep(180,0.3),300);
+    setTimeout(()=>beep(140,0.4),650);
+}
+
+// ================= PLAYER =================
+const player = {
+    x: 40,
+    y: 80,
+    w: 14,
+    h: 20,
+    vy: 0,
+
+    reset(){
+        this.y = 80;
+        this.vy = 0;
+    },
+
+    update(){
+        this.vy += 0.08;
+        this.y += this.vy;
+
+        if(this.y + this.h >= H){
+            this.y = H - this.h;
+            gameOver();
+        }
+    },
+
+    jump(){
+        this.vy = -1.8;
+    },
+
+    draw(){
+        // cabelo (ruivo)
+        ctx.fillStyle="#ff6a00";
+        ctx.fillRect(this.x-1,this.y,4,10);
+        ctx.fillRect(this.x+11,this.y,4,10);
+
+        // cabeça
+        ctx.fillStyle="#fff";
+        ctx.fillRect(this.x+2,this.y,10,8);
+
+        // olhos
+        ctx.fillStyle="#000";
+        ctx.fillRect(this.x+4,this.y+3,2,2);
+        ctx.fillRect(this.x+8,this.y+3,2,2);
+
+        // marcas vermelhas
+        ctx.fillStyle="#aa0000";
+        ctx.fillRect(this.x+6,this.y+5,2,5);
+
+        // corpo
+        ctx.fillStyle="#ddd";
+        ctx.fillRect(this.x+3,this.y+8,8,10);
+    }
+};
+
+// ================= BALÕES =================
+let balloonColor = localStorage.getItem("balloonColor") || "#ff0000";
+let balloons = [];
+
+function spawnBalloon(){
+    balloons.push({
+        x: W + 10,
+        y: Math.random() * 160 + 20
+    });
+}
+
+function updateBalloons(){
+    for(let i = balloons.length-1; i >= 0; i--){
+        const b = balloons[i];
+        b.x -= 0.5;
+
+        if(
+            player.x < b.x + 6 &&
+            player.x + player.w > b.x &&
+            player.y < b.y + 8 &&
+            player.y + player.h > b.y
+        ){
+            balloons.splice(i,1);
+            score++;
+            coins++;
+            beep(800,0.08);
+            continue;
+        }
+
+        if(b.x < -10){
+            balloons.splice(i,1);
+        }
+    }
+}
+
+function drawBalloons(){
+    balloons.forEach(b=>{
+        ctx.fillStyle = balloonColor;
+        ctx.fillRect(b.x,b.y,6,8);
+        ctx.fillStyle="#555";
+        ctx.fillRect(b.x+3,b.y+8,1,6);
+    });
+}
+
+// ================= HUD =================
+function drawHUD(){
+    ctx.fillStyle="#000";
+    ctx.fillRect(0,0,W,14);
+    ctx.fillStyle="#fff";
+    ctx.fillText("🎈 "+score,6,10);
+    ctx.fillText("💰 "+coins,W-55,10);
+}
+
+// ================= GAME OVER =================
+function gameOver(){
+    state="gameover";
+    best = Math.max(best,score);
+    localStorage.setItem("best",best);
+    localStorage.setItem("coins",coins);
+    loseMusic();
+}
+
+// ================= MENU =================
+function drawMenu(){
+    ctx.fillStyle="#9dd9ff";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="#000";
+    ctx.fillText("VEM FLUTUAR 🎈",W/2-36,60);
+    ctx.fillText("RECORDE: "+best,W/2-36,75);
+    ctx.fillText("MOEDAS: "+coins,W/2-36,90);
+
+    drawButton(W/2-50,120,"JOGAR");
+    drawButton(W/2-50,150,"LOJA");
+}
+
+// ================= LOJA =================
+const shopItems = [
+    {color:"#ff0000",price:0,name:"VERMELHO"},
+    {color:"#0000ff",price:10,name:"AZUL"},
+    {color:"#00aa00",price:20,name:"VERDE"},
+    {color:"#8000ff",price:30,name:"ROXO"},
+    {color:"#ffd700",price:50,name:"DOURADO"},
+    {color:"#ff69b4",price:80,name:"ROSA"}
+];
+
+function drawShop(){
+    ctx.fillStyle="#b0e0ff";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="#000";
+    ctx.fillText("LOJA DE BALÕES",W/2-40,30);
+    ctx.fillText("MOEDAS: "+coins,W/2-32,45);
+
+    shopItems.forEach((item,i)=>{
+        drawButton(W/2-60,65+i*22,`${item.name} (${item.price})`);
+    });
+
+    drawButton(W/2-60,65+shopItems.length*22+12,"VOLTAR");
+}
+
+// ================= BUTTON =================
+function drawButton(x,y,text){
+    ctx.fillStyle="#fff";
+    ctx.fillRect(x,y,120,18);
+    ctx.strokeStyle="#000";
+    ctx.strokeRect(x,y,120,18);
+    ctx.fillStyle="#000";
+    ctx.fillText(text,x+6,y+12);
+}
+
+// ================= INPUT =================
+function tap(x,y){
+    if(!canTap) return;
+    canTap=false;
+    initAudio();
+
+    if(state==="menu"){
+        if(y>120 && y<138) startGame();
+        else if(y>150 && y<168) state="shop";
+    }
+    else if(state==="shop"){
+        shopItems.forEach((item,i)=>{
+            const by=65+i*22;
+            if(y>by && y<by+18 && coins>=item.price){
+                coins-=item.price;
+                balloonColor=item.color;
+                localStorage.setItem("coins",coins);
+                localStorage.setItem("balloonColor",balloonColor);
+                beep(500,0.1);
+            }
+        });
+        if(y>65+shopItems.length*22+12) state="menu";
+    }
+    else if(state==="game"){
+        player.jump();
+    }
+    else if(state==="gameover"){
+        state="menu";
+    }
+}
+
+canvas.addEventListener("mousedown",e=>{
+    const r=canvas.getBoundingClientRect();
+    tap((e.clientX-r.left)/SCALE,(e.clientY-r.top)/SCALE);
+});
+canvas.addEventListener("mouseup",()=>canTap=true);
+
+canvas.addEventListener("touchstart",e=>{
+    const r=canvas.getBoundingClientRect();
+    tap((e.touches[0].clientX-r.left)/SCALE,(e.touches[0].clientY-r.top)/SCALE);
+});
+canvas.addEventListener("touchend",()=>canTap=true);
+
+// ================= START =================
+function startGame(){
+    score = 0;
+    balloons = [];
+    player.reset();
+    frame = 0;
+    state = "game";
+}
+
+// ================= LOOP =================
+function loop(){
+    ctx.clearRect(0,0,W,H);
+
+    if(state==="menu") drawMenu();
+    else if(state==="shop") drawShop();
+    else if(state==="game"){
+        player.update();
+        updateBalloons();
+        if(frame%120===0) spawnBalloon();
+        drawBalloons();
+        player.draw();
+        drawHUD();
+    }
+    else if(state==="gameover"){
+        ctx.fillStyle="#000";
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle="#fff";
+        ctx.fillText("GAME OVER",W/2-30,95);
+        ctx.fillText("BALÕES: "+score,W/2-32,115);
+        ctx.fillText("TOQUE P/ MENU",W/2-44,145);
+    }
+
+    frame++;
+    requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
