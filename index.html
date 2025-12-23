@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Vem Flutuar: Terror no Circo 🎈</title>
+<title>Vem Flutuar: Ultimate Fix 🎈</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
 <style>
@@ -16,86 +16,96 @@
     align-items: center;
     overflow: hidden;
     touch-action: none;
-    font-family: 'Press Start 2P', cursive;
+    font-family: 'Press Start 2P', monospace;
+    user-select: none;
+    -webkit-user-select: none;
+    color: white;
   }
 
-  /* Container para simular uma máquina de arcade */
-  #game-container {
+  #game-wrapper {
     position: relative;
-    box-shadow: 0 0 50px rgba(138, 0, 0, 0.4);
-    border: 4px solid #333;
-    border-radius: 4px;
+    box-shadow: 0 0 50px rgba(100, 0, 0, 0.4);
+    border: 2px solid #333;
+    overflow: hidden;
+    background: #000;
   }
 
   canvas {
     display: block;
-    background: #1a0b2e;
-    image-rendering: pixelated; /* Garante pixels nítidos */
+    background: #0d0616;
+    image-rendering: pixelated;
     width: 100%;
     height: 100%;
-    max-width: 800px;
-    max-height: 800px;
   }
 
-  /* Efeito de TV antiga (Scanlines) */
-  .scanlines {
+  /* Scanlines e Efeitos */
+  .overlay {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(
-      to bottom,
-      rgba(255,255,255,0),
-      rgba(255,255,255,0) 50%,
-      rgba(0,0,0,0.2) 50%,
-      rgba(0,0,0,0.2)
-    );
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.1) 50%);
     background-size: 100% 4px;
     pointer-events: none;
     z-index: 10;
+  }
+
+  /* Mensagem de Erro (caso ocorra) */
+  #error-msg {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(0,0,0,0.9);
+    padding: 20px;
+    border: 1px solid red;
+    z-index: 999;
+    font-size: 10px;
   }
 </style>
 </head>
 
 <body>
 
-<div id="game-container">
+<div id="game-wrapper">
   <canvas id="game"></canvas>
-  <div class="scanlines"></div>
+  <div class="overlay"></div>
+</div>
+
+<div id="error-msg">
+  ERRO CRÍTICO<br>
+  <button onclick="localStorage.clear(); location.reload();" style="margin-top:10px; padding:10px;">RESETAR DADOS</button>
 </div>
 
 <script>
+window.onerror = function(msg, url, line) {
+  const errDiv = document.getElementById("error-msg");
+  errDiv.style.display = "block";
+  errDiv.innerHTML += `<br>Linha ${line}: ${msg}`;
+  return false;
+};
+
+try {
 /**
- * VEM FLUTUAR: REMASTERED
- * Criado por Gemini AI
+ * VEM FLUTUAR: SAFETY VERSION
  */
 
-// ================= CONFIGURAÇÃO =================
+// ================= CONFIG CANVAS =================
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: false });
-
-// Resolução interna baixa para look "Retro"
 const GAME_W = 240;
-const GAME_H = 320;
-const SCALE = 3; // Escala visual
+const GAME_H = 360;
 
-// Ajusta o tamanho do canvas
 function resize() {
-  let h = window.innerHeight;
-  let w = window.innerWidth;
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+  const scale = Math.min(winW / GAME_W, winH / GAME_H);
   
-  // Mantém proporção
-  let ratio = GAME_W / GAME_H;
-  
-  // Lógica para caber na tela mantendo pixel perfect se possível
-  let finalH = Math.min(h, 800);
-  let finalW = finalH * ratio;
+  const finalW = Math.floor(GAME_W * scale);
+  const finalH = Math.floor(GAME_H * scale);
 
-  if (finalW > w) {
-    finalW = w;
-    finalH = finalW / ratio;
-  }
-
-  canvas.style.width = `${finalW}px`;
-  canvas.style.height = `${finalH}px`;
+  const wrapper = document.getElementById("game-wrapper");
+  wrapper.style.width = finalW + "px";
+  wrapper.style.height = finalH + "px";
   
   canvas.width = GAME_W;
   canvas.height = GAME_H;
@@ -103,558 +113,481 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// ================= ESTADO GLOBAL =================
-let state = "MENU"; // MENU, GAME, SHOP, GAMEOVER
-let frames = 0;
-let speed = 1.5;
-let score = 0;
-let coins = parseInt(localStorage.getItem("coins")) || 0;
-let bestScore = parseInt(localStorage.getItem("best")) || 0;
+// ================= FUNÇÕES AUXILIARES SEGURAS =================
 
-// Paleta de Cores
-const C = {
-  bg: "#120b21",
-  ground: "#090514",
-  accent: "#ff0044",
-  white: "#ffffff",
-  gold: "#ffd700",
-  textShade: "rgba(0,0,0,0.7)"
-};
+// Substituto seguro para roundRect que funciona em todos navegadores
+function drawRoundRect(ctx, x, y, w, h, radius) {
+  if (w < 2 * radius) radius = w / 2;
+  if (h < 2 * radius) radius = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+  ctx.fill();
+}
 
-// Loja
-let ownedItems = JSON.parse(localStorage.getItem("owned")) || ["red"];
-let currentSkin = localStorage.getItem("skin") || "red";
-const shopItems = [
-  {id:"red", name:"Clássico", price:0, color:"#d11"},
-  {id:"blue", name:"Noite", price:25, color:"#22aadd"},
-  {id:"gold", name:"Luxo", price:60, color:"#ffd700"},
-  {id:"void", name:"Vazio", price:100, color:"#a0a"}
-];
-
-// ================= ÁUDIO (Sintetizador) =================
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let actx = new AudioCtx();
-
-function playSound(type) {
-  if (actx.state === 'suspended') actx.resume();
-  const osc = actx.createOscillator();
-  const gain = actx.createGain();
-  osc.connect(gain);
-  gain.connect(actx.destination);
-
-  const now = actx.currentTime;
-  
-  if (type === 'jump') {
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(150, now);
-    osc.frequency.linearRampToValueAtTime(300, now + 0.1);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-    osc.start(now);
-    osc.stop(now + 0.1);
-  } 
-  else if (type === 'coin') {
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(1200, now);
-    osc.frequency.setValueAtTime(1800, now + 0.05);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-    osc.start(now);
-    osc.stop(now + 0.15);
-  }
-  else if (type === 'hit') {
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(100, now);
-    osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.linearRampToValueAtTime(0, now + 0.3);
-    osc.start(now);
-    osc.stop(now + 0.3);
+// Carregamento Seguro de Dados
+function loadSafe(key, def) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : def;
+  } catch (e) {
+    console.log("Erro ao carregar dados, resetando: " + key);
+    return def;
   }
 }
 
-// ================= ENTIDADES =================
+// ================= ESTADO DO JOGO =================
+const DB = {
+  balloons: [
+    {id:"red", name:"Sangue", price:0, color:"#d00"},
+    {id:"blue", name:"Noturno", price:50, color:"#2ad"},
+    {id:"green", name:"Tóxico", price:100, color:"#0f0"},
+    {id:"gold", name:"Ouro", price:300, color:"#ffd700"},
+    {id:"void", name:"Vazio", price:500, color:"#304"}
+  ],
+  skins: [
+    {id:"classic", name:"Palhaço", price:0},
+    {id:"zombie", name:"Zumbi", price:200},
+    {id:"shadow", name:"Sombra", price:450},
+    {id:"mime", name:"Mímico", price:600}
+  ],
+  skills: [
+    {id:"magnet", name:"Ímã", desc:"Puxa balões", price:500},
+    {id:"shield", name:"Escudo", desc:"Protege 1x", price:800},
+    {id:"doublejump", name:"Pulo Duplo", desc:"Pulo no ar", price:1000}
+  ]
+};
 
-// Jogador (O Palhaço)
-const player = {
-  x: 40, y: 100, w: 14, h: 20, vy: 0, gravity: 0.15,
-  jumpStr: -2.8, 
-  reset() { this.y = 100; this.vy = 0; },
+let SAVES = {
+  coins: parseInt(localStorage.getItem("coins")) || 0,
+  best: parseInt(localStorage.getItem("best")) || 0,
+  balloons: loadSafe("myBalloons", ["red"]),
+  skins: loadSafe("mySkins", ["classic"]),
+  skills: loadSafe("mySkills", []),
+  equipped: {
+    balloon: localStorage.getItem("eqBalloon") || "red",
+    skin: localStorage.getItem("eqSkin") || "classic",
+    skill: localStorage.getItem("eqSkill") || null
+  }
+};
+
+function saveData() {
+  localStorage.setItem("coins", SAVES.coins);
+  localStorage.setItem("best", SAVES.best);
+  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
+  localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
+  localStorage.setItem("mySkills", JSON.stringify(SAVES.skills));
+  localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
+  localStorage.setItem("eqSkin", SAVES.equipped.skin);
+  localStorage.setItem("eqSkill", SAVES.equipped.skill);
+}
+
+// Variáveis de Jogo
+let state = "MENU";
+let frames = 0;
+let score = 0;
+let speed = 1.0;
+let shopTab = "balloons";
+
+// ================= ÁUDIO =================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+
+function initAudio() {
+  if (!actx && AudioCtx) actx = new AudioCtx();
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+
+function sfx(type) {
+  if (!actx) return;
+  const osc = actx.createOscillator();
+  const g = actx.createGain();
+  osc.connect(g); g.connect(actx.destination);
+  const t = actx.currentTime;
+
+  if (type==="jump") {
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.linearRampToValueAtTime(300, t+0.1);
+    g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0, t+0.1);
+    osc.start(t); osc.stop(t+0.1);
+  } else if (type==="coin") {
+    osc.frequency.setValueAtTime(1000, t);
+    osc.frequency.setValueAtTime(1500, t+0.1);
+    g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0, t+0.15);
+    osc.start(t); osc.stop(t+0.15);
+  } else if (type==="die") {
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t+0.4);
+    g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t+0.4);
+    osc.start(t); osc.stop(t+0.4);
+  }
+}
+
+// ================= CLASSES =================
+class Player {
+  constructor() {
+    this.x = 50; this.y = 100;
+    this.w = 14; this.h = 22;
+    this.vy = 0;
+    this.gravity = 0.12;     // Gravidade suave
+    this.jumpForce = -2.5;   // Pulo suave
+    this.jumps = 0;
+    this.hasShield = false;
+  }
+  
+  reset() {
+    this.y = 100; this.vy = 0;
+    this.hasShield = (SAVES.equipped.skill === "shield");
+    this.jumps = (SAVES.equipped.skill === "doublejump") ? 1 : 0;
+  }
+  
   update() {
     this.vy += this.gravity;
     this.y += this.vy;
-    
-    // Chão e Teto
-    if (this.y > GAME_H - 25) hitObstacle(); 
-    if (this.y < 0) this.y = 0;
-  },
-  draw() {
-    let px = Math.floor(this.x);
-    let py = Math.floor(this.y);
-    
-    // Corpo
-    ctx.fillStyle = "#ddd"; // Roupa branca suja
-    ctx.fillRect(px+2, py+8, 10, 10);
-    
-    // Botões / Detalhes
-    ctx.fillStyle = C.accent;
-    ctx.fillRect(px+6, py+10, 2, 2);
-    ctx.fillRect(px+6, py+14, 2, 2);
-
-    // Cabeça
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(px+1, py, 12, 9);
-    
-    // Cabelo
-    ctx.fillStyle = "#d00";
-    ctx.fillRect(px-1, py+1, 3, 5); // Esq
-    ctx.fillRect(px+12, py+1, 3, 5); // Dir
-    
-    // Rosto
-    ctx.fillStyle = "#000"; // Olhos
-    ctx.fillRect(px+3, py+3, 2, 2);
-    ctx.fillRect(px+9, py+3, 2, 2);
-    
-    ctx.fillStyle = "#d00"; // Nariz
-    ctx.fillRect(px+6, py+5, 2, 2);
-  }
-};
-
-// Gerenciador de Objetos
-let balloons = [];
-let obstacles = [];
-let particles = [];
-
-// Classe Partícula (Confete)
-class Particle {
-  constructor(x, y, color) {
-    this.x = x; this.y = y;
-    this.vx = (Math.random() - 0.5) * 4;
-    this.vy = (Math.random() - 0.5) * 4;
-    this.life = 30;
-    this.color = color;
-  }
-  update() {
-    this.x += this.vx; this.y += this.vy;
-    this.life--;
-  }
-  draw() {
-    ctx.fillStyle = this.color;
-    ctx.globalAlpha = this.life / 30;
-    ctx.fillRect(this.x, this.y, 2, 2);
-    ctx.globalAlpha = 1;
-  }
-}
-
-// Spawner
-function spawnThings() {
-  // Balões
-  if (frames % 70 === 0) {
-    let by = 30 + Math.random() * (GAME_H - 100);
-    balloons.push({ x: GAME_W, y: by, active: true, bobOffset: Math.random()*10 });
+    if (this.y > GAME_H - 24) gameOver();
+    if (this.y < 0) { this.y = 0; this.vy = 0; }
   }
   
-  // Obstáculos (Serras)
-  // Aumenta dificuldade com o tempo
-  let freq = score > 20 ? 90 : (score > 10 ? 120 : 150);
-  if (frames % freq === 0) {
-    let isTop = Math.random() > 0.5;
-    let oy = isTop ? Math.random() * 60 : GAME_H - 80 - Math.random() * 60;
-    obstacles.push({ x: GAME_W, y: oy, w: 20, h: 20, rot: 0 });
+  jump() {
+    initAudio();
+    if (this.vy < 0 && SAVES.equipped.skill === "doublejump" && this.jumps > 0) {
+      this.vy = this.jumpForce;
+      this.jumps--;
+      sfx("jump");
+      createParticles(this.x+7, this.y+20, "#fff", 4);
+    } else if (state === "GAME") {
+      this.vy = this.jumpForce;
+      sfx("jump");
+    }
+  }
+  
+  draw() {
+    drawSkin(Math.floor(this.x), Math.floor(this.y), SAVES.equipped.skin);
+    if (this.hasShield) {
+      ctx.strokeStyle = `rgba(0,255,255,${0.5+Math.sin(frames*0.2)*0.2})`;
+      ctx.beginPath(); ctx.arc(this.x+7, this.y+11, 16, 0, Math.PI*2); ctx.stroke();
+    }
   }
 }
 
-// ================= SISTEMA DE JOGO =================
+const player = new Player();
+let entities = [];
+let particles = [];
+
+// ================= LOOP LOGIC =================
+function spawn() {
+  // Balão
+  if (frames % 60 === 0) {
+    let b = {
+      x: GAME_W+10, y: 40 + Math.random()*(GAME_H-120),
+      type: "balloon", w: 10, h: 12, bob: Math.random()*10,
+      color: DB.balloons.find(x=>x.id===SAVES.equipped.balloon)?.color || "#d00"
+    };
+    entities.push(b);
+  }
+  
+  // Serra
+  let diff = 180 - (score * 2);
+  if (diff < 80) diff = 80;
+  if (frames % diff === 0) {
+    let isTop = Math.random() > 0.5;
+    let s = {
+      x: GAME_W+10, y: isTop ? Math.random()*40 : GAME_H - 60 - Math.random()*20,
+      type: "saw", w: 20, h: 20, rot: 0
+    };
+    entities.push(s);
+  }
+}
 
 function updateGame() {
   player.update();
+  
+  // Velocidade sobe bem devagar
+  if (frames % 600 === 0) speed += 0.05;
+  if (speed > 3) speed = 3;
 
-  // Velocidade aumenta levemente
-  speed = 1.5 + (score * 0.02);
-  if(speed > 3.5) speed = 3.5;
-
-  // Atualiza Balões
-  for (let i = balloons.length - 1; i >= 0; i--) {
-    let b = balloons[i];
-    b.x -= speed;
+  for (let i=entities.length-1; i>=0; i--) {
+    let e = entities[i];
     
-    // Movimento suave vertical (bobbing)
-    let floatY = b.y + Math.sin((frames + b.bobOffset * 10) * 0.1) * 3;
-
-    // Colisão Player-Balão
-    if (
-      b.active &&
-      player.x < b.x + 8 && player.x + player.w > b.x &&
-      player.y < floatY + 10 && player.y + player.h > floatY
-    ) {
-      b.active = false;
-      score++;
-      coins++;
-      playSound('coin');
-      // Spawn particles
-      for(let k=0; k<8; k++) particles.push(new Particle(b.x, floatY, getBalloonColor()));
-    }
-    
-    if (b.x < -20) balloons.splice(i, 1);
-  }
-
-  // Atualiza Obstáculos
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    let o = obstacles[i];
-    o.x -= speed;
-    o.rot += 0.2; // Girar visualmente
-
-    // Colisão Player-Obstáculo (Hitbox menor para ser justo)
-    let buffer = 4;
-    if (
-      player.x + buffer < o.x + o.w - buffer && 
-      player.x + player.w - buffer > o.x + buffer &&
-      player.y + buffer < o.y + o.h - buffer && 
-      player.y + player.h - buffer > o.y + buffer
-    ) {
-      hitObstacle();
-    }
-
-    if (o.x < -30) obstacles.splice(i, 1);
-  }
-
-  // Atualiza Partículas
-  for (let i = particles.length - 1; i >= 0; i--) {
-    particles[i].update();
-    if (particles[i].life <= 0) particles.splice(i, 1);
-  }
-}
-
-function hitObstacle() {
-  playSound('hit');
-  if (score > bestScore) {
-    bestScore = score;
-    localStorage.setItem("best", bestScore);
-  }
-  localStorage.setItem("coins", coins);
-  state = "GAMEOVER";
-}
-
-function getBalloonColor() {
-  let item = shopItems.find(i => i.id === currentSkin);
-  return item ? item.color : "#d11";
-}
-
-// ================= DESENHO (RENDER) =================
-
-function drawSaw(x, y, rot) {
-  ctx.save();
-  ctx.translate(x + 10, y + 10);
-  ctx.rotate(rot);
-  ctx.fillStyle = "#888";
-  ctx.beginPath();
-  // Desenha uma estrela simples (serra)
-  for (let i = 0; i < 8; i++) {
-    ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-2, -10, 4, 8);
-  }
-  ctx.fillStyle = "#555";
-  ctx.fillRect(-4, -4, 8, 8); // Eixo
-  ctx.restore();
-}
-
-function drawBackground() {
-  // Céu
-  ctx.fillStyle = C.bg;
-  ctx.fillRect(0, 0, GAME_W, GAME_H);
-
-  // Estrelas / Poeira
-  ctx.fillStyle = "#443355";
-  for(let i=0; i<20; i++) {
-    let sx = (i * 37 + frames * 0.2) % GAME_W;
-    let sy = (i * 19) % (GAME_H/2);
-    ctx.fillRect(sx, sy, 1, 1);
-  }
-
-  // Camada Distante (Árvores Escuras) - Parallax Lento
-  ctx.fillStyle = "#1e1433";
-  let px1 = -(frames * 0.5) % 40;
-  for (let i = -1; i < GAME_W / 20 + 1; i++) {
-    let h = 40 + Math.sin(i * 132) * 15;
-    ctx.fillRect(px1 + i * 40, GAME_H - h - 10, 25, h);
-  }
-
-  // Camada Perto (Tendas/Grades) - Parallax Médio
-  ctx.fillStyle = "#2d1b4e";
-  let px2 = -(frames * 1.0) % 60;
-  for (let i = -1; i < GAME_W / 40 + 1; i++) {
-    // Postes de cerca
-    ctx.fillRect(px2 + i * 60, GAME_H - 40, 4, 40);
-    // Correntes
-    ctx.fillRect(px2 + i * 60 + 4, GAME_H - 35, 56, 1);
-  }
-
-  // Chão
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, GAME_H - 20, GAME_W, 20);
-  // Grama morta
-  ctx.fillStyle = "#261530";
-  ctx.fillRect(0, GAME_H - 22, GAME_W, 4);
-}
-
-function render() {
-  drawBackground();
-
-  // Partículas (Atrás do HUD)
-  particles.forEach(p => p.draw());
-
-  if (state === "GAME" || state === "GAMEOVER") {
-    // Balões
-    let bColor = getBalloonColor();
-    balloons.forEach(b => {
-      if (!b.active) return;
-      let y = b.y + Math.sin((frames + b.bobOffset * 10) * 0.1) * 3;
-      
-      // Fio
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(b.x + 3, y + 8, 1, 8);
-      
-      // Balão
-      ctx.fillStyle = bColor;
-      ctx.beginPath();
-      ctx.roundRect(b.x, y, 8, 10, 2);
-      ctx.fill();
-      // Brilho
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
-      ctx.fillRect(b.x + 2, y + 2, 2, 2);
-    });
-
-    // Serras
-    obstacles.forEach(o => drawSaw(o.x, o.y, o.rot));
-
-    // Player
-    player.draw();
-
-    // HUD
-    ctx.fillStyle = C.textShade;
-    ctx.fillRect(5, 5, 80, 16);
-    ctx.fillStyle = C.white;
-    ctx.textAlign = "left";
-    ctx.font = "8px 'Press Start 2P'";
-    ctx.fillText(`SCORE: ${score}`, 8, 16);
-  }
-  
-  if (state === "MENU") drawMenu();
-  if (state === "GAMEOVER") drawGameOver();
-  if (state === "SHOP") drawShop();
-}
-
-// ================= UI INTERFACES =================
-
-function drawBtn(text, x, y, w, h, highlight=false) {
-  ctx.fillStyle = highlight ? C.accent : "#333";
-  ctx.fillRect(x, y, w, h);
-  
-  // Borda 3D simples
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(x, y, w, 2); // top
-  ctx.fillRect(x, y, 2, h); // left
-  ctx.fillStyle = "#000";
-  ctx.fillRect(x, y+h-2, w, 2); // bot
-  ctx.fillRect(x+w-2, y, 2, h); // right
-  
-  ctx.fillStyle = "#fff";
-  ctx.textAlign = "center";
-  ctx.fillText(text, x + w/2, y + h/2 + 3);
-}
-
-function drawMenu() {
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.fillRect(20, 40, GAME_W-40, GAME_H-80);
-  
-  ctx.fillStyle = C.accent;
-  ctx.textAlign = "center";
-  ctx.font = "12px 'Press Start 2P'";
-  ctx.fillText("VEM FLUTUAR", GAME_W/2, 70);
-  
-  ctx.fillStyle = "#888";
-  ctx.font = "8px 'Press Start 2P'";
-  ctx.fillText("TERROR NO CIRCO", GAME_W/2, 85);
-
-  ctx.fillStyle = C.gold;
-  ctx.fillText(`BEST: ${bestScore}`, GAME_W/2, 110);
-  ctx.fillText(`COINS: ${coins}`, GAME_W/2, 125);
-
-  drawBtn("JOGAR", GAME_W/2 - 40, 160, 80, 20, true);
-  drawBtn("LOJA", GAME_W/2 - 40, 190, 80, 20);
-}
-
-function drawGameOver() {
-  ctx.fillStyle = "rgba(50,0,0,0.8)";
-  ctx.fillRect(30, 80, GAME_W-60, 120);
-  
-  ctx.fillStyle = "#f00";
-  ctx.textAlign = "center";
-  ctx.font = "12px 'Press Start 2P'";
-  ctx.fillText("GAME OVER", GAME_W/2, 110);
-  
-  ctx.fillStyle = "#fff";
-  ctx.font = "8px 'Press Start 2P'";
-  ctx.fillText(`Final: ${score}`, GAME_W/2, 135);
-  
-  // Piscar
-  if (Math.floor(frames/30) % 2 === 0) {
-    ctx.fillText("Toque para Menu", GAME_W/2, 170);
-  }
-}
-
-function drawShop() {
-  ctx.fillStyle = "#111";
-  ctx.fillRect(10, 10, GAME_W-20, GAME_H-20);
-  
-  ctx.fillStyle = C.gold;
-  ctx.textAlign = "center";
-  ctx.font = "10px 'Press Start 2P'";
-  ctx.fillText("LOJA DE BALÕES", GAME_W/2, 35);
-  
-  ctx.textAlign = "left";
-  ctx.font = "8px 'Press Start 2P'";
-  ctx.fillText(`MOEDAS: ${coins}`, 20, 55);
-
-  let startY = 70;
-  shopItems.forEach((item, idx) => {
-    let y = startY + idx * 35;
-    let owned = ownedItems.includes(item.id);
-    let equipped = currentSkin === item.id;
-    
-    // Box
-    ctx.strokeStyle = equipped ? C.gold : "#444";
-    ctx.strokeRect(20, y, GAME_W-40, 28);
-    
-    // Cor
-    ctx.fillStyle = item.color;
-    ctx.fillRect(26, y+8, 12, 12);
-    
-    // Nome
-    ctx.fillStyle = "#fff";
-    ctx.fillText(item.name, 46, y+12);
-    
-    // Preço / Status
-    if (equipped) {
-      ctx.fillStyle = "#0f0";
-      ctx.fillText("USANDO", 46, y+22);
-    } else if (owned) {
-      ctx.fillStyle = "#aaa";
-      ctx.fillText("TOCA P/ USAR", 46, y+22);
+    // Skill Imã
+    if (e.type === "balloon" && SAVES.equipped.skill === "magnet") {
+      let dx = player.x - e.x, dy = player.y - e.y;
+      let d = Math.sqrt(dx*dx + dy*dy);
+      if (d < 100) { e.x += dx/d*2; e.y += dy/d*2; }
+      else e.x -= speed;
     } else {
-      ctx.fillStyle = C.gold;
-      ctx.fillText(`${item.price} $`, 46, y+22);
+      e.x -= speed;
+    }
+    
+    // Lógica Serra
+    if (e.type === "saw") e.rot += 0.2;
+    if (e.type === "balloon") e.y += Math.sin(frames*0.1 + e.bob)*0.5;
+
+    // Colisão
+    if (checkColl(player, e)) {
+      if (e.type === "balloon") {
+        score++; SAVES.coins++;
+        sfx("coin");
+        createParticles(e.x, e.y, e.color, 5);
+        entities.splice(i, 1);
+      } else if (e.type === "saw") {
+        if (player.hasShield) {
+          player.hasShield = false;
+          entities.splice(i, 1);
+          createParticles(player.x, player.y, "#0ff", 10);
+        } else {
+          gameOver();
+        }
+      }
+    } else if (e.x < -30) {
+      entities.splice(i, 1);
+    }
+  }
+  
+  // Particulas
+  for(let i=particles.length-1; i>=0; i--) {
+    particles[i].x += particles[i].vx;
+    particles[i].y += particles[i].vy;
+    particles[i].life--;
+    if(particles[i].life <= 0) particles.splice(i,1);
+  }
+}
+
+function checkColl(p, e) {
+  let pad = 2; // Margem de erro
+  let pw = p.w - pad*2; let ph = p.h - pad*2;
+  return p.x+pad < e.x + e.w && p.x+pad+pw > e.x &&
+         p.y+pad < e.y + e.h && p.y+pad+ph > e.y;
+}
+
+function gameOver() {
+  state = "GAMEOVER";
+  sfx("die");
+  if (score > SAVES.best) SAVES.best = score;
+  saveData();
+}
+
+// ================= RENDER =================
+function drawSkin(x, y, id) {
+  // Cores Base
+  let cMain = "#ccc", cHair = "#d00", cFace = "#fff";
+  
+  if(id === "zombie") { cMain = "#354"; cHair = "#222"; cFace = "#689"; }
+  if(id === "shadow") { cMain = "#101"; cHair = "#000"; cFace = "#202"; }
+  if(id === "mime")   { cMain = "#000"; cHair = "#000"; cFace = "#fff"; }
+
+  // Corpo
+  ctx.fillStyle = cMain; ctx.fillRect(x+2, y+10, 10, 12);
+  // Cabeça
+  ctx.fillStyle = cFace; ctx.fillRect(x+1, y, 12, 10);
+  // Cabelo
+  ctx.fillStyle = cHair;
+  if (id==="mime") ctx.fillRect(x+2, y-1, 8, 2);
+  else { ctx.fillRect(x-1, y+2, 3, 5); ctx.fillRect(x+12, y+2, 3, 5); }
+  
+  // Detalhes Rosto
+  ctx.fillStyle = (id==="shadow")?"#fff":"#000";
+  ctx.fillRect(x+3, y+4, 2, 2); ctx.fillRect(x+9, y+4, 2, 2); // Olhos
+  if(id!=="zombie" && id!=="shadow") { ctx.fillStyle="#d00"; ctx.fillRect(x+6, y+6, 2, 2); } // Nariz
+}
+
+function drawGame() {
+  // BG
+  ctx.fillStyle = "#090510"; ctx.fillRect(0,0,GAME_W,GAME_H);
+  
+  // Parallax Arvores
+  ctx.fillStyle = "#160b24";
+  for(let i=0; i<7; i++) {
+    let h = 50 + Math.sin(i*132)*20;
+    ctx.fillRect((i*40 - frames*0.2)%280 - 40, GAME_H-h-20, 26, h);
+  }
+  // Chão
+  ctx.fillStyle = "#221133"; ctx.fillRect(0, GAME_H-24, GAME_W, 24);
+
+  // Entidades
+  entities.forEach(e => {
+    if(e.type === "balloon") {
+      ctx.fillStyle = "#fff"; ctx.fillRect(e.x+4, e.y+12, 1, 8); // Fio
+      ctx.fillStyle = e.color; drawRoundRect(ctx, e.x, e.y, 10, 12, 3);
+    } else {
+      ctx.save(); ctx.translate(e.x+10, e.y+10); ctx.rotate(e.rot);
+      ctx.fillStyle = "#888"; 
+      for(let j=0;j<4;j++){ ctx.rotate(Math.PI/2); ctx.fillRect(-2,-10,4,20); }
+      ctx.restore();
     }
   });
 
-  drawBtn("VOLTAR", GAME_W/2 - 30, GAME_H - 40, 60, 20);
+  particles.forEach(p => {
+    ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 2, 2);
+  });
+
+  player.draw();
+
+  // HUD
+  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0,0,GAME_W,20);
+  ctx.fillStyle = "#fff"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left";
+  ctx.fillText(score, 5, 14);
+  ctx.textAlign="right"; ctx.fillStyle="#fd0";
+  ctx.fillText("$"+SAVES.coins, GAME_W-5, 14);
 }
 
-// ================= INPUT HANDLER =================
-function handleInput(e) {
-  e.preventDefault();
+function drawMenu() {
+  drawGame(); // Fundo animado
+  ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(20, 60, GAME_W-40, 200);
   
-  // Coordenadas do clique relativas ao Canvas interno
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+  ctx.fillStyle="#f05"; ctx.textAlign="center"; 
+  ctx.font="12px 'Press Start 2P'"; ctx.fillText("VEM FLUTUAR", GAME_W/2, 90);
   
-  let clientX = e.clientX || e.changedTouches[0].clientX;
-  let clientY = e.clientY || e.changedTouches[0].clientY;
+  ctx.fillStyle="#fff"; ctx.font="8px 'Press Start 2P'";
+  ctx.fillText("RECORD: "+SAVES.best, GAME_W/2, 120);
+  ctx.fillStyle="#fd0";
+  ctx.fillText("COINS: "+SAVES.coins, GAME_W/2, 135);
   
-  let x = (clientX - rect.left) * scaleX;
-  let y = (clientY - rect.top) * scaleY;
+  drawBtn("JOGAR", GAME_W/2-40, 170, 80, 24, true);
+  drawBtn("LOJA", GAME_W/2-40, 205, 80, 24);
+}
+
+function drawShop() {
+  ctx.fillStyle = "#111"; ctx.fillRect(0,0,GAME_W,GAME_H);
+  
+  // Tabs
+  let tw = GAME_W/3;
+  let tabs = ["balloons", "skins", "skills"];
+  tabs.forEach((t, i) => {
+    ctx.fillStyle = (shopTab===t) ? "#444" : "#222";
+    ctx.fillRect(i*tw, 30, tw, 20);
+    ctx.fillStyle = "#fff"; ctx.textAlign="center"; ctx.font="8px 'Press Start 2P'";
+    let ico = (t==="balloons")?"🎈":(t==="skins"?"🤡":"⚡");
+    ctx.fillText(ico, i*tw + tw/2, 43);
+  });
+
+  // Lista
+  let list = DB[shopTab];
+  let y = 60;
+  
+  ctx.textAlign="right"; ctx.fillStyle="#fd0"; 
+  ctx.fillText("$"+SAVES.coins, GAME_W-10, 20);
+
+  list.forEach(item => {
+    let owned = SAVES[shopTab].includes(item.id);
+    let equipped = false;
+    if (shopTab==="balloons" && SAVES.equipped.balloon === item.id) equipped = true;
+    if (shopTab==="skins" && SAVES.equipped.skin === item.id) equipped = true;
+    if (shopTab==="skills" && SAVES.equipped.skill === item.id) equipped = true;
+
+    ctx.strokeStyle = equipped ? "#0f0" : "#444";
+    ctx.strokeRect(10, y, GAME_W-20, 30);
+    
+    // Nome
+    ctx.textAlign="left"; ctx.fillStyle="#fff";
+    ctx.fillText(item.name, 15, y+12);
+    // Preço
+    ctx.textAlign="right";
+    if (equipped) { ctx.fillStyle="#0f0"; ctx.fillText("USANDO", GAME_W-15, y+18); }
+    else if (owned) { ctx.fillStyle="#aaa"; ctx.fillText("USAR", GAME_W-15, y+18); }
+    else { ctx.fillStyle="#fe0"; ctx.fillText("$"+item.price, GAME_W-15, y+18); }
+    
+    y += 35;
+  });
+  
+  drawBtn("VOLTAR", GAME_W/2-30, GAME_H-30, 60, 20);
+}
+
+function drawBtn(txt, x, y, w, h, hl) {
+  ctx.fillStyle = hl ? "#c00" : "#333"; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle = "#fff"; ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle = "#fff"; ctx.textAlign="center"; ctx.font="8px 'Press Start 2P'";
+  ctx.fillText(txt, x+w/2, y+h/2+4);
+}
+
+function createParticles(x, y, c, q) {
+  for(let i=0; i<q; i++) particles.push({x:x, y:y, vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4, life:30, color:c});
+}
+
+// ================= INPUT & LOOP =================
+function resetGame() {
+  score=0; speed=1.0; entities=[]; particles=[];
+  player.reset();
+}
+
+function input(x, y) {
+  initAudio();
+  const r = canvas.getBoundingClientRect();
+  const scale = GAME_W / r.width;
+  const gx = (x - r.left) * scale;
+  const gy = (y - r.top) * scale;
 
   if (state === "MENU") {
-    // Botão JOGAR
-    if (x > GAME_W/2 - 40 && x < GAME_W/2 + 40 && y > 160 && y < 180) {
-      resetGame();
-      state = "GAME";
-    }
-    // Botão LOJA
-    else if (x > GAME_W/2 - 40 && x < GAME_W/2 + 40 && y > 190 && y < 210) {
-      state = "SHOP";
-    }
-  }
+    if (gy > 170 && gy < 194) { resetGame(); state="GAME"; }
+    else if (gy > 205 && gy < 230) state="SHOP";
+  } 
   else if (state === "GAME") {
-    player.vy = player.jumpStr;
-    playSound('jump');
+    player.jump();
   }
   else if (state === "GAMEOVER") {
     state = "MENU";
   }
   else if (state === "SHOP") {
-    // Voltar
-    if (x > GAME_W/2 - 30 && x < GAME_W/2 + 30 && y > GAME_H - 40 && y < GAME_H - 20) {
-      state = "MENU";
+    if (gy > GAME_H-30) { state="MENU"; return; }
+    if (gy > 30 && gy < 50) {
+      let tw = GAME_W/3;
+      if (gx < tw) shopTab="balloons";
+      else if (gx < tw*2) shopTab="skins";
+      else shopTab="skills";
       return;
     }
-    
-    // Clique nos Itens
-    let startY = 70;
-    shopItems.forEach((item, idx) => {
-      let iy = startY + idx * 35;
-      if (x > 20 && x < GAME_W-20 && y > iy && y < iy + 28) {
-        if (ownedItems.includes(item.id)) {
-          currentSkin = item.id;
-          localStorage.setItem("skin", currentSkin);
-          playSound('jump');
-        } else if (coins >= item.price) {
-          coins -= item.price;
-          ownedItems.push(item.id);
-          currentSkin = item.id;
-          localStorage.setItem("owned", JSON.stringify(ownedItems));
-          localStorage.setItem("skin", currentSkin);
-          localStorage.setItem("coins", coins);
-          playSound('coin');
+    // Lógica Compra
+    let list = DB[shopTab];
+    let yStart = 60;
+    list.forEach((item, i) => {
+      let iy = yStart + i*35;
+      if (gy > iy && gy < iy+30) {
+        let owned = SAVES[shopTab].includes(item.id);
+        if (owned) {
+          if (shopTab==="balloons") SAVES.equipped.balloon = item.id;
+          if (shopTab==="skins") SAVES.equipped.skin = item.id;
+          if (shopTab==="skills") SAVES.equipped.skill = (SAVES.equipped.skill===item.id)?null:item.id;
+          sfx("jump");
+        } else if (SAVES.coins >= item.price) {
+          SAVES.coins -= item.price;
+          SAVES[shopTab].push(item.id);
+          sfx("coin");
         } else {
-          playSound('hit'); // Erro
+          sfx("die");
         }
+        saveData();
       }
     });
   }
 }
 
-function resetGame() {
-  player.reset();
-  balloons = [];
-  obstacles = [];
-  particles = [];
-  score = 0;
-  frames = 0;
-  speed = 1.5;
-}
+window.addEventListener("mousedown", e=>input(e.clientX, e.clientY));
+window.addEventListener("touchstart", e=>{e.preventDefault(); input(e.touches[0].clientX, e.touches[0].clientY);}, {passive:false});
+window.addEventListener("keydown", e=>{ if(e.code==="Space") { if(state==="GAME") player.jump(); else input(window.innerWidth/2, window.innerHeight/2); } });
 
-window.addEventListener("mousedown", handleInput);
-window.addEventListener("touchstart", handleInput, {passive: false});
-window.addEventListener("keydown", (e) => {
-  if (e.code === "Space" || e.code === "ArrowUp") {
-    // Simula clique no centro da tela para atalho de teclado
-    handleInput({
-      preventDefault:()=>{}, 
-      clientX: window.innerWidth/2, 
-      clientY: window.innerHeight/2
-    });
-  }
-});
-
-// ================= LOOP PRINCIPAL =================
+// Loop Principal
 function loop() {
-  frames++;
-  ctx.clearRect(0, 0, GAME_W, GAME_H);
-  
-  if (state === "GAME") {
-    spawnThings();
-    updateGame();
-  }
-  
-  render();
   requestAnimationFrame(loop);
+  frames++;
+  ctx.clearRect(0,0,GAME_W,GAME_H);
+  
+  if(state==="GAME") { spawn(); updateGame(); drawGame(); }
+  else if(state==="MENU") drawMenu();
+  else if(state==="SHOP") drawShop();
+  else if(state==="GAMEOVER") { drawGame(); ctx.fillStyle="rgba(0,0,0,0.8)"; ctx.fillRect(20,100,GAME_W-40,80); ctx.fillStyle="#f00"; ctx.textAlign="center"; ctx.fillText("FIM DE JOGO", GAME_W/2, 145); }
 }
-
-// Iniciar
 loop();
 
+} catch (err) {
+  // Captura erros silenciosos e mostra na tela
+  document.getElementById("error-msg").style.display = "block";
+  document.getElementById("error-msg").innerHTML += "<br>"+err.message;
+}
 </script>
 </body>
 </html>
