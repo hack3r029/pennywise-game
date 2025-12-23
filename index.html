@@ -21,6 +21,61 @@
   <div id="credits">BY: @CARLUZSNT</div>
 </div>
 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAihGsa8MKG30r8aoj6tnMBuM9e-Bk5eEI",
+    authDomain: "vamos-flutuar.firebaseapp.com",
+    projectId: "vamos-flutuar",
+    storageBucket: "vamos-flutuar.firebasestorage.app",
+    messagingSenderId: "21354937126",
+    appId: "1:21354937126:web:3c2c46a9bb287e4d2c1fe7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  window.fbUser = null;
+
+  // Sincronizar dados com nuvem
+  window.syncCloud = async () => {
+    if (!window.fbUser) return;
+    const ref = doc(db, "users", window.fbUser.uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      SAVES.coins = data.coins || SAVES.coins;
+      SAVES.best = data.best || SAVES.best;
+      SAVES.balloons = data.balloons || SAVES.balloons;
+      saveData();
+    } else {
+      await setDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, name: window.fbUser.displayName });
+    }
+  };
+
+  // Login
+  window.loginGoogle = async () => {
+    try { await signInWithPopup(auth, provider); } catch(e) { console.error(e); }
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    window.fbUser = user;
+    if (user) window.syncCloud();
+  });
+
+  // Salvar progresso (chamado ao ganhar moedas ou bater recorde)
+  window.saveToCloud = async () => {
+    if (!window.fbUser) return;
+    const ref = doc(db, "users", window.fbUser.uid);
+    await updateDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons });
+  };
+</script>
+
 <script>
 // ================= CONFIGURAÇÕES =================
 const LANGS = {
@@ -63,6 +118,7 @@ function saveData() {
   localStorage.setItem("best", SAVES.best);
   localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
   localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
+  if(window.saveToCloud) window.saveToCloud(); // Push para Firebase
 }
 
 // ================= AUDIO =================
@@ -94,11 +150,8 @@ function drawSkin(x, y) {
 
 function drawBallon(x, y, color, sc=1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
-  // Linha do balão
   ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, 14); ctx.lineTo(6, 22); ctx.stroke();
-  // Corpo do balão
   ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(6, 7, 6, 8, 0, 0, Math.PI*2); ctx.fill();
-  // Brilho interno (ajuda a ver cores muito claras)
   ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.beginPath(); ctx.ellipse(4, 5, 2, 3, 0, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
@@ -114,10 +167,19 @@ function drawSaw(x, y, angle) {
 // ================= GAME LOGIC =================
 let state = "MENU", frames = 0, score = 0, speed = 2, shopTab = "balloons", previewItem = null, gameStarted = false;
 let entities = []; 
+let redeemStatus = "";
 
 const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.18, jf: -3.8, 
   reset() { this.y = 150; this.vy = 0; gameStarted = false; entities=[]; score=0; }
 };
+
+function processRedeem() {
+    let code = prompt("DIGITE O CÓDIGO:").toUpperCase();
+    if(code === "FLUTUAR") { SAVES.coins += 500; redeemStatus = "GANHOU 500!"; saveData(); }
+    else if(code === "DERRY") { SAVES.coins += 1000; redeemStatus = "GANHOU 1000!"; saveData(); }
+    else { redeemStatus = "CÓDIGO INVÁLIDO"; }
+    setTimeout(() => redeemStatus = "", 2000);
+}
 
 function updateGame() {
   if(!gameStarted) return;
@@ -146,8 +208,10 @@ function handleInput(e) {
   const gx = (touch.clientX - r.left) * (GAME_W / r.width); const gy = (touch.clientY - r.top) * (GAME_H / r.height);
 
   if (state === "MENU") {
-    if (gy > 160 && gy < 190) { player.reset(); state="GAME"; }
-    else if (gy > 200 && gy < 230) state="SHOP";
+    if (gy > 140 && gy < 170) { player.reset(); state="GAME"; }
+    else if (gy > 180 && gy < 210) state="SHOP";
+    else if (gy > 220 && gy < 250) { if(window.loginGoogle) window.loginGoogle(); }
+    else if (gy > 260 && gy < 290) processRedeem();
   } else if (state === "GAMEOVER") {
     if (gy > 200 && gy < 230) { player.reset(); state="GAME"; }
     else if (gy > 240 && gy < 270) state="MENU";
@@ -180,9 +244,17 @@ function loop() {
     ctx.textAlign="right"; ctx.fillText("$"+SAVES.coins, GAME_W-10, 20);
   } else if(state==="MENU") {
     ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
-    ctx.fillText("VAMOS", 120, 60); ctx.fillText("FLUTUAR", 120, 90);
-    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="red"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText(t, 120, y+20); };
-    btn("JOGAR", 160); btn("LOJA", 200);
+    ctx.fillText("VAMOS", 120, 45); ctx.fillText("FLUTUAR", 120, 70);
+    
+    const btn = (t, y, c="red") => { ctx.fillStyle="#111"; ctx.fillRect(40, y, 160, 25); ctx.strokeStyle=c; ctx.strokeRect(40, y, 160, 25); ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.fillText(t, 120, y+16); };
+    
+    btn("JOGAR", 140);
+    btn("LOJA", 180);
+    
+    let userT = window.fbUser ? window.fbUser.displayName.split(" ")[0].toUpperCase() : "LOGAR GOOGLE";
+    btn(userT, 220, window.fbUser ? "#0f0" : "red");
+    btn(redeemStatus || "RESGATAR CÓDIGO", 260, "cyan");
+
   } else if(state==="GAMEOVER") {
     ctx.fillStyle="rgba(0,0,0,0.85)"; ctx.fillRect(0,0,GAME_W,GAME_H);
     ctx.fillStyle="red"; ctx.textAlign="center"; ctx.fillText("FIM DE JOGO", 120, 100);
