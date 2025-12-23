@@ -12,30 +12,21 @@
   .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.15) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; }
   #credits { position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 6px; color: #666; letter-spacing: 1px; }
 
-  /* ESTILO DAS JANELAS (MODAIS) */
   .modal {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: 190px; background: #111; border: 3px solid red; padding: 15px;
     display: none; flex-direction: column; z-index: 100; box-shadow: 0 0 20px rgba(255,0,0,0.6);
-    image-rendering: pixelated;
   }
-  .modal h2 { font-size: 8px; color: red; text-align: center; margin-bottom: 15px; line-height: 1.4; }
-  .modal input { 
-    background: #000; border: 1px solid #444; color: white; 
-    font-family: 'Press Start 2P'; font-size: 7px; padding: 10px; margin-bottom: 10px; outline: none;
-  }
-  .modal button {
-    background: red; border: 2px solid #800; color: white; font-family: 'Press Start 2P';
-    font-size: 7px; padding: 10px; cursor: pointer; margin-bottom: 5px;
-  }
-  .modal .close-btn { background: #333; border: 2px solid #111; margin-top: 5px; }
+  .modal h2 { font-size: 8px; color: red; text-align: center; margin-bottom: 15px; }
+  .modal input { background: #000; border: 1px solid #444; color: white; font-family: 'Press Start 2P'; font-size: 7px; padding: 10px; margin-bottom: 10px; outline: none; }
+  .modal button { background: red; border: none; color: white; font-family: 'Press Start 2P'; font-size: 7px; padding: 10px; cursor: pointer; margin-bottom: 5px; }
+  .modal .close-btn { background: #333; }
 </style>
 </head>
 <body>
 
 <div id="game-wrapper">
   <canvas id="game"></canvas>
-  
   <div id="modal-auth" class="modal">
     <h2 id="auth-title">LOGIN / CADASTRO</h2>
     <input type="email" id="email" placeholder="E-MAIL">
@@ -43,14 +34,12 @@
     <button onclick="handleAuth()">CONFIRMAR</button>
     <button class="close-btn" onclick="closeModals()">FECHAR</button>
   </div>
-
   <div id="modal-redeem" class="modal">
     <h2>RESGATAR CÓDIGO</h2>
     <input type="text" id="redeem-code" placeholder="CÓDIGO">
     <button onclick="handleRedeem()">RESGATAR</button>
     <button class="close-btn" onclick="closeModals()">FECHAR</button>
   </div>
-
   <div class="overlay"></div>
   <div id="credits">BY: @CARLUZSNT</div>
 </div>
@@ -81,8 +70,8 @@
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const data = snap.data();
-      SAVES.coins = data.coins !== undefined ? data.coins : SAVES.coins;
-      SAVES.best = data.best !== undefined ? data.best : SAVES.best;
+      SAVES.coins = data.coins || SAVES.coins;
+      SAVES.best = data.best || SAVES.best;
       SAVES.balloons = data.balloons || SAVES.balloons;
       SAVES.usedCodes = data.usedCodes || [];
       saveData();
@@ -124,8 +113,7 @@
   };
 
   onAuthStateChanged(auth, (user) => {
-    window.fbUser = user;
-    if (user) window.syncCloud();
+    window.fbUser = user; if (user) window.syncCloud();
   });
 
   window.saveToCloud = async () => {
@@ -136,11 +124,11 @@
 </script>
 
 <script>
-// ================= JOGO RECOSTRUIDO =================
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: false });
 const GAME_W = 240; const GAME_H = 360;
 
+const LANGS = { pt: { items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON" } } };
 const DB = { balloons: [{id:"red", price:0, color:"#ff0000"}, {id:"blue", price:50, color:"#0088ff"}, {id:"green", price:150, color:"#00ff00"}, {id:"gold", price:500, color:"#ffcc00"}, {id:"cyan", price:1000, color:"#00ffff"}] };
 let SAVES = {
   coins: parseInt(localStorage.getItem("coins")) || 0,
@@ -165,7 +153,7 @@ function closeModals() {
 }
 
 let state = "MENU", frames = 0, score = 0, speed = 2, entities = [], gameStarted = false, previewItem = null;
-const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.18, jf: -3.8, reset() { this.y=150; this.vy=0; score=0; entities=[]; gameStarted=false; } };
+const player = { x: 50, y: 150, vy: 0, g: 0.18, jf: -3.8, reset() { this.y=150; this.vy=0; score=0; entities=[]; gameStarted=false; } };
 
 function resize() {
   const scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
@@ -175,6 +163,15 @@ function resize() {
   canvas.width = GAME_W; canvas.height = GAME_H;
 }
 window.addEventListener('resize', resize); resize();
+
+function drawSkin(x, y) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
+  ctx.fillStyle = "#ccc"; ctx.fillRect(2, 10, 10, 12);
+  ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10);
+  ctx.fillStyle = "#222"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
+  ctx.restore();
+}
 
 function drawBallon(x, y, color, sc=1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
@@ -249,18 +246,20 @@ function loop() {
   } else if (state === "GAME") {
       entities.forEach(e => { if(e.type === "balloon") drawBallon(e.x, e.y, e.color); else drawSaw(e.x, e.y, e.angle); });
       drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
+      drawSkin(player.x, player.y);
       ctx.fillStyle="#fff"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 10, 20);
+      ctx.textAlign="right"; ctx.fillText("$"+SAVES.coins, 230, 20);
   } else if (state === "SHOP") {
-      ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText("LOJA DE BALOES", 120, 40);
+      ctx.fillStyle="red"; ctx.textAlign="center"; ctx.font="10px 'Press Start 2P'"; ctx.fillText("LOJA", 120, 40);
       DB.balloons.forEach((item, i) => { 
         let y=70+i*42; let isUsed = SAVES.equipped.balloon === item.id;
         ctx.fillStyle="#111"; ctx.fillRect(10, y, 220, 35); ctx.strokeStyle=isUsed?"#0f0":"#333"; ctx.strokeRect(10, y, 220, 35);
-        ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(item.id.toUpperCase(), 20, y+22);
-        ctx.textAlign="right"; ctx.fillText(SAVES.balloons.includes(item.id)?"TER":"$"+item.price, 220, y+22);
+        ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(LANGS.pt.items[item.id], 20, y+22);
+        ctx.textAlign="right"; ctx.fillStyle=isUsed?"#0f0":"#ffd700"; ctx.fillText(SAVES.balloons.includes(item.id)?"TER":"$"+item.price, 220, y+22);
       });
-      ctx.textAlign="center"; ctx.fillText("VOLTAR", 120, 345);
+      ctx.textAlign="center"; ctx.fillStyle="white"; ctx.fillText("VOLTAR", 120, 345);
       if(previewItem) {
-        ctx.fillStyle="rgba(0,0,0,0.9)"; ctx.fillRect(0,0,GAME_W,GAME_H);
+        ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H);
         drawBallon(105, 120, previewItem.color, 2.5);
         ctx.fillStyle="red"; ctx.fillRect(60, 235, 120, 35); ctx.fillStyle="white";
         ctx.fillText(SAVES.balloons.includes(previewItem.id)?"EQUIPAR":"COMPRAR", 120, 258);
@@ -273,4 +272,3 @@ loop();
 </script>
 </body>
 </html>
-
