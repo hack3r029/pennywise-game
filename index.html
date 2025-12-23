@@ -3,591 +3,321 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Vem Flutuar: Ultimate Fix 🎈</title>
+<title>Vamos Flutuar: Derry 🎈</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-
 <style>
-  html, body {
-    margin: 0;
-    height: 100%;
-    background-color: #05000a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    touch-action: none;
-    font-family: 'Press Start 2P', monospace;
-    user-select: none;
-    -webkit-user-select: none;
-    color: white;
-  }
-
-  #game-wrapper {
-    position: relative;
-    box-shadow: 0 0 50px rgba(100, 0, 0, 0.4);
-    border: 2px solid #333;
-    overflow: hidden;
-    background: #000;
-  }
-
-  canvas {
-    display: block;
-    background: #0d0616;
-    image-rendering: pixelated;
-    width: 100%;
-    height: 100%;
-  }
-
-  /* Scanlines e Efeitos */
-  .overlay {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.1) 50%);
-    background-size: 100% 4px;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  /* Mensagem de Erro (caso ocorra) */
-  #error-msg {
-    display: none;
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    background: rgba(0,0,0,0.9);
-    padding: 20px;
-    border: 1px solid red;
-    z-index: 999;
-    font-size: 10px;
-  }
+  html, body { margin: 0; height: 100%; background-color: #05000a; display: flex; justify-content: center; align-items: center; overflow: hidden; touch-action: none; font-family: 'Press Start 2P', monospace; user-select: none; color: white; }
+  #game-wrapper { position: relative; box-shadow: 0 0 50px rgba(100, 0, 0, 0.6); border: 4px solid #1a1a1a; overflow: hidden; background: #000; width: 240px; height: 360px; }
+  canvas { display: block; background: #000; image-rendering: pixelated; width: 100%; height: 100%; }
+  .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.15) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; }
+  #insta-link { position: absolute; display: none; color: #f00; font-size: 8px; text-decoration: none; z-index: 100; text-align: center; width: 100%; bottom: 15px; letter-spacing: 1px; }
 </style>
 </head>
-
 <body>
 
 <div id="game-wrapper">
   <canvas id="game"></canvas>
   <div class="overlay"></div>
-</div>
-
-<div id="error-msg">
-  ERRO CRÍTICO<br>
-  <button onclick="localStorage.clear(); location.reload();" style="margin-top:10px; padding:10px;">RESETAR DADOS</button>
+  <a id="insta-link" href="https://instagram.com/carluzsnt" target="_blank">BY @CARLUZSNT</a>
 </div>
 
 <script>
-window.onerror = function(msg, url, line) {
-  const errDiv = document.getElementById("error-msg");
-  errDiv.style.display = "block";
-  errDiv.innerHTML += `<br>Linha ${line}: ${msg}`;
-  return false;
+// ================= CONFIGURAÇÕES E TRADUÇÕES =================
+const LANGS = {
+  pt: { play: "JOGAR", shop: "LOJA", settings: "CONFIGS", back: "VOLTAR", close: "FECHAR", buy: "COMPRAR", use: "USAR", using: "USANDO", tap: "TOQUE PARA SUBIR", score: "RECORD", balloons: "BALOES", skins: "SKINS", skills: "PODERES", over: "FIM DE JOGO", music: "MUSICA", sfx: "EFEITOS", credits: "CRIADO POR:", items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON", classic: "PALHACO", zombie: "ZUMBI", shadow: "SOMBRA", mime: "MIMICO", magnet: "IMA", shield: "ESCUDO", doublejump: "PULO DUPLO" }, descs: { red: "O CLASSICO.", blue: "CEU PROFUNDO.", green: "BRILHA MUITO.", gold: "PURO LUXO.", cyan: "LUZ VIBRANTE.", classic: "ASSUSTADOR.", zombie: "VOLTOU DO ALEM.", shadow: "FEITO DE TREVAS.", mime: "SILENCIO.", magnet: "PUXA TUDO.", shield: "MAIS 1 VIDA.", doublejump: "PULA NO AR." } },
+  es: { play: "JUGAR", shop: "TIENDA", settings: "CONFIGS", back: "VOLVER", close: "CERRAR", buy: "COMPRAR", use: "USAR", using: "USANDO", tap: "TOCA PARA SUBIR", score: "RECORD", balloons: "GLOBOS", skins: "PIELES", skills: "PODERES", over: "FIN JUEGO", music: "MUSICA", sfx: "EFECTOS", credits: "CREADO POR:", items: { red: "SANGRE", blue: "NOCHE", green: "TOXICO", gold: "ORO", cyan: "NEON", classic: "PAYASO", zombie: "ZOMBI", shadow: "SOMBRA", mime: "MIMO", magnet: "IMAN", shield: "ESCUDO", doublejump: "SALTO DOBLE" }, descs: { red: "EL CLASICO.", blue: "CIELO OSCURO.", green: "BRILLA MUCHO.", gold: "PURO ORO.", cyan: "LUZ VIVA.", classic: "DA MIEDO.", zombie: "REANIMADO.", shadow: "DE LAS SOMBRAS.", mime: "SILENCIOSO.", magnet: "ATRAE GLOBOS.", shield: "UNA VIDA MAS.", doublejump: "SALTA EN AIRE." } },
+  en: { play: "PLAY", shop: "SHOP", settings: "SETTINGS", back: "BACK", close: "CLOSE", buy: "BUY", use: "USE", using: "USING", tap: "TAP TO FLY", score: "BEST", balloons: "BALLOONS", skins: "SKINS", skills: "SKILLS", over: "GAME OVER", music: "MUSIC", sfx: "SFX", credits: "CREATED BY:", items: { red: "BLOOD", blue: "NIGHT", green: "TOXIC", gold: "GOLD", cyan: "NEON", classic: "CLOWN", zombie: "ZOMBIE", shadow: "SHADOW", mime: "MIME", magnet: "MAGNET", shield: "SHIELD", doublejump: "DOUBLE JUMP" }, descs: { red: "THE CLASSIC.", blue: "DEEP SKY.", green: "GLOWS DARK.", gold: "PURE WEALTH.", cyan: "VIBRANT LIGHT.", classic: "SCARY FACE.", zombie: "UNDEAD.", shadow: "FROM DARK.", mime: "SILENT.", magnet: "PULLS COINS.", shield: "EXTRA HIT.", doublejump: "JUMP IN AIR." } }
 };
 
-try {
-/**
- * VEM FLUTUAR: SAFETY VERSION
- */
-
-// ================= CONFIG CANVAS =================
+let currentLang = localStorage.getItem("lang") || "pt";
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: false });
-const GAME_W = 240;
-const GAME_H = 360;
+const GAME_W = 240; const GAME_H = 360;
+const instaBtn = document.getElementById("insta-link");
 
 function resize() {
-  const winW = window.innerWidth;
-  const winH = window.innerHeight;
-  const scale = Math.min(winW / GAME_W, winH / GAME_H);
-  
-  const finalW = Math.floor(GAME_W * scale);
-  const finalH = Math.floor(GAME_H * scale);
-
+  const scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
   const wrapper = document.getElementById("game-wrapper");
-  wrapper.style.width = finalW + "px";
-  wrapper.style.height = finalH + "px";
-  
-  canvas.width = GAME_W;
-  canvas.height = GAME_H;
+  wrapper.style.width = Math.floor(GAME_W * scale) + "px";
+  wrapper.style.height = Math.floor(GAME_H * scale) + "px";
+  canvas.width = GAME_W; canvas.height = GAME_H;
 }
-window.addEventListener('resize', resize);
-resize();
+window.addEventListener('resize', resize); resize();
 
-// ================= FUNÇÕES AUXILIARES SEGURAS =================
+// ================= DATA & SAVES =================
+let volMusic = parseFloat(localStorage.getItem("volMusic")) ?? 0.4;
+let volSfx = parseFloat(localStorage.getItem("volSfx")) ?? 0.6;
 
-// Substituto seguro para roundRect que funciona em todos navegadores
-function drawRoundRect(ctx, x, y, w, h, radius) {
-  if (w < 2 * radius) radius = w / 2;
-  if (h < 2 * radius) radius = h / 2;
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
-  ctx.closePath();
-  ctx.fill();
-}
-
-// Carregamento Seguro de Dados
-function loadSafe(key, def) {
-  try {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : def;
-  } catch (e) {
-    console.log("Erro ao carregar dados, resetando: " + key);
-    return def;
-  }
-}
-
-// ================= ESTADO DO JOGO =================
 const DB = {
-  balloons: [
-    {id:"red", name:"Sangue", price:0, color:"#d00"},
-    {id:"blue", name:"Noturno", price:50, color:"#2ad"},
-    {id:"green", name:"Tóxico", price:100, color:"#0f0"},
-    {id:"gold", name:"Ouro", price:300, color:"#ffd700"},
-    {id:"void", name:"Vazio", price:500, color:"#304"}
-  ],
-  skins: [
-    {id:"classic", name:"Palhaço", price:0},
-    {id:"zombie", name:"Zumbi", price:200},
-    {id:"shadow", name:"Sombra", price:450},
-    {id:"mime", name:"Mímico", price:600}
-  ],
-  skills: [
-    {id:"magnet", name:"Ímã", desc:"Puxa balões", price:500},
-    {id:"shield", name:"Escudo", desc:"Protege 1x", price:800},
-    {id:"doublejump", name:"Pulo Duplo", desc:"Pulo no ar", price:1000}
-  ]
+  balloons: [{id:"red", price:0, color:"#d00"}, {id:"blue", price:50, color:"#2ad"}, {id:"green", price:100, color:"#0f0"}, {id:"gold", price:300, color:"#ffd700"}, {id:"cyan", price:500, color:"#0ffff"}],
+  skins: [{id:"classic", price:0}, {id:"zombie", price:200}, {id:"shadow", price:450}, {id:"mime", price:600}],
+  skills: [{id:"magnet", price:500}, {id:"shield", price:800}, {id:"doublejump", price:1000}]
 };
 
 let SAVES = {
   coins: parseInt(localStorage.getItem("coins")) || 0,
   best: parseInt(localStorage.getItem("best")) || 0,
-  balloons: loadSafe("myBalloons", ["red"]),
-  skins: loadSafe("mySkins", ["classic"]),
-  skills: loadSafe("mySkills", []),
-  equipped: {
-    balloon: localStorage.getItem("eqBalloon") || "red",
-    skin: localStorage.getItem("eqSkin") || "classic",
-    skill: localStorage.getItem("eqSkill") || null
-  }
+  balloons: JSON.parse(localStorage.getItem("myBalloons")) || ["red"],
+  skins: JSON.parse(localStorage.getItem("mySkins")) || ["classic"],
+  skills: JSON.parse(localStorage.getItem("mySkills")) || [],
+  equipped: { balloon: localStorage.getItem("eqBalloon") || "red", skin: localStorage.getItem("eqSkin") || "classic", skill: localStorage.getItem("eqSkill") || null }
 };
 
 function saveData() {
-  localStorage.setItem("coins", SAVES.coins);
-  localStorage.setItem("best", SAVES.best);
-  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
-  localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
-  localStorage.setItem("mySkills", JSON.stringify(SAVES.skills));
-  localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
-  localStorage.setItem("eqSkin", SAVES.equipped.skin);
-  localStorage.setItem("eqSkill", SAVES.equipped.skill);
+  localStorage.setItem("coins", SAVES.coins); localStorage.setItem("best", SAVES.best);
+  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons)); localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
+  localStorage.setItem("mySkills", JSON.stringify(SAVES.skills)); localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
+  localStorage.setItem("eqSkin", SAVES.equipped.skin); localStorage.setItem("eqSkill", SAVES.equipped.skill || "");
+  localStorage.setItem("lang", currentLang); localStorage.setItem("volMusic", volMusic); localStorage.setItem("volSfx", volSfx);
 }
 
-// Variáveis de Jogo
-let state = "MENU";
-let frames = 0;
-let score = 0;
-let speed = 1.0;
-let shopTab = "balloons";
-
-// ================= ÁUDIO =================
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let actx = null;
-
-function initAudio() {
-  if (!actx && AudioCtx) actx = new AudioCtx();
-  if (actx && actx.state === 'suspended') actx.resume();
+// ================= AUDIO SYSTEM =================
+let actx = null, musicStarted = false;
+function startMusic() {
+  if (musicStarted) return; musicStarted = true;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const playNote = (freq, time, duration, vol, type="sine") => {
+    const osc = actx.createOscillator(); const g = actx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, time);
+    g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(vol * volMusic, time + 0.8);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    osc.connect(g); g.connect(actx.destination); osc.start(time); osc.stop(time + duration);
+  };
+  const loop = () => {
+    const now = actx.currentTime;
+    playNote(40, now, 10, 0.05, "sine");
+    const m = [440, 466, 349, 330];
+    m.forEach((f, i) => playNote(f, now + i*3, 4, 0.03, "triangle"));
+    setTimeout(loop, 12000);
+  }; loop();
 }
 
 function sfx(type) {
   if (!actx) return;
-  const osc = actx.createOscillator();
-  const g = actx.createGain();
+  const osc = actx.createOscillator(); const g = actx.createGain();
   osc.connect(g); g.connect(actx.destination);
-  const t = actx.currentTime;
-
-  if (type==="jump") {
-    osc.frequency.setValueAtTime(150, t);
-    osc.frequency.linearRampToValueAtTime(300, t+0.1);
-    g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0, t+0.1);
-    osc.start(t); osc.stop(t+0.1);
-  } else if (type==="coin") {
-    osc.frequency.setValueAtTime(1000, t);
-    osc.frequency.setValueAtTime(1500, t+0.1);
-    g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0, t+0.15);
-    osc.start(t); osc.stop(t+0.15);
-  } else if (type==="die") {
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(150, t);
-    osc.frequency.exponentialRampToValueAtTime(40, t+0.4);
-    g.gain.setValueAtTime(0.2, t); g.gain.linearRampToValueAtTime(0, t+0.4);
-    osc.start(t); osc.stop(t+0.4);
-  }
+  g.gain.setValueAtTime(volSfx * 0.1, actx.currentTime);
+  if (type === "jump") { osc.frequency.setValueAtTime(150, actx.currentTime); osc.frequency.exponentialRampToValueAtTime(400, actx.currentTime+0.1); osc.start(); osc.stop(actx.currentTime+0.1); }
+  else if (type === "coin") { osc.frequency.setValueAtTime(800, actx.currentTime); osc.frequency.setValueAtTime(1200, actx.currentTime+0.05); osc.start(); osc.stop(actx.currentTime+0.1); }
+  else if (type === "die") { osc.frequency.setValueAtTime(100, actx.currentTime); osc.frequency.linearRampToValueAtTime(20, actx.currentTime+0.5); osc.start(); osc.stop(actx.currentTime+0.5); }
 }
 
-// ================= CLASSES =================
-class Player {
-  constructor() {
-    this.x = 50; this.y = 100;
-    this.w = 14; this.h = 22;
-    this.vy = 0;
-    this.gravity = 0.12;     // Gravidade suave
-    this.jumpForce = -2.5;   // Pulo suave
-    this.jumps = 0;
-    this.hasShield = false;
-  }
+// ================= RENDERING DERRY (INFINITE) =================
+let cityX1 = 0; let cityX2 = 0;
+function drawDerryCity(speedMult) {
+  cityX1 -= speedMult * 0.3; // Prédios distantes (mais lentos)
+  cityX2 -= speedMult * 0.8; // Prédios próximos (mais rápidos)
   
-  reset() {
-    this.y = 100; this.vy = 0;
-    this.hasShield = (SAVES.equipped.skill === "shield");
-    this.jumps = (SAVES.equipped.skill === "doublejump") ? 1 : 0;
-  }
+  // Fundo Céu
+  ctx.fillStyle = "#05000a"; ctx.fillRect(0, 0, GAME_W, GAME_H);
   
-  update() {
-    this.vy += this.gravity;
-    this.y += this.vy;
-    if (this.y > GAME_H - 24) gameOver();
-    if (this.y < 0) { this.y = 0; this.vy = 0; }
+  // Estrelas Fixas
+  ctx.fillStyle = "#444"; for(let i=0; i<10; i++) ctx.fillRect((i*55)%GAME_W, (i*82)%200, 1, 1);
+
+  // Prédios Distantes (Camada 1)
+  ctx.fillStyle = "#0d0616";
+  for(let i=0; i<6; i++) {
+    let x = (cityX1 + i*80) % (80 * 6);
+    if (x < 0) x += (80 * 6);
+    ctx.fillRect(x - 80, 180, 50, 150);
   }
-  
-  jump() {
-    initAudio();
-    if (this.vy < 0 && SAVES.equipped.skill === "doublejump" && this.jumps > 0) {
-      this.vy = this.jumpForce;
-      this.jumps--;
-      sfx("jump");
-      createParticles(this.x+7, this.y+20, "#fff", 4);
-    } else if (state === "GAME") {
-      this.vy = this.jumpForce;
-      sfx("jump");
-    }
+
+  // Prédios Próximos (Camada 2)
+  for(let i=0; i<5; i++) {
+    let x = (cityX2 + i*100) % (100 * 5);
+    if (x < 0) x += (100 * 5);
+    ctx.fillStyle = "#150a1d";
+    ctx.fillRect(x - 100, 220, 70, 140);
+    // Janelas Sombrias
+    ctx.fillStyle = "#221133";
+    ctx.fillRect(x-85, 240, 10, 10); ctx.fillRect(x-55, 240, 10, 10);
+    ctx.fillRect(x-85, 270, 10, 10); ctx.fillRect(x-55, 270, 10, 10);
   }
-  
-  draw() {
-    drawSkin(Math.floor(this.x), Math.floor(this.y), SAVES.equipped.skin);
-    if (this.hasShield) {
-      ctx.strokeStyle = `rgba(0,255,255,${0.5+Math.sin(frames*0.2)*0.2})`;
-      ctx.beginPath(); ctx.arc(this.x+7, this.y+11, 16, 0, Math.PI*2); ctx.stroke();
-    }
-  }
+
+  // Chão Sólido
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 320, GAME_W, 40);
 }
 
-const player = new Player();
+function drawSkin(x, y, id, sc = 1) {
+  let cM = "#ccc", cH = "#d00", cF = "#fff";
+  if(id === "zombie") { cM = "#354"; cH = "#222"; cF = "#689"; }
+  else if(id === "shadow") { cM = "#111"; cH = "#000"; cF = "#222"; }
+  else if(id === "mime") { cM = "#000"; cH = "#000"; cF = "#fff"; }
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.fillStyle = cM; ctx.fillRect(2, 10, 10, 12); ctx.fillStyle = cF; ctx.fillRect(1, 0, 12, 10);
+  ctx.fillStyle = cH; if(id==="mime") ctx.fillRect(2,-1,8,2); else { ctx.fillRect(-1,2,3,5); ctx.fillRect(12,2,3,5); }
+  ctx.fillStyle = (id==="shadow")?"#fff":"#000"; ctx.fillRect(3,4,2,2); ctx.fillRect(9,4,2,2);
+  ctx.restore();
+}
+
+function drawBallon(x, y, color, sc=1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, 14); ctx.lineTo(6, 25); ctx.stroke();
+  ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(6, 7, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(3, 3, 2, 3);
+  ctx.restore();
+}
+
+function drawSkill(x, y, id) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(2, 2);
+  if (id === "magnet") { ctx.fillStyle = "red"; ctx.fillRect(0, 0, 10, 5); ctx.fillStyle = "silver"; ctx.fillRect(0, 5, 3, 5); ctx.fillRect(7, 5, 3, 5); }
+  else if (id === "shield") { ctx.fillStyle = "#0ff"; ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(10,3); ctx.lineTo(8,10); ctx.lineTo(5,12); ctx.lineTo(2,10); ctx.lineTo(0,3); ctx.closePath(); ctx.fill(); }
+  else if (id === "doublejump") { ctx.fillStyle = "#fff"; ctx.fillRect(0,6,10,2); ctx.fillRect(2,3,6,2); }
+  ctx.restore();
+}
+
+// ================= GAME LOGIC =================
+let state = "MENU", frames = 0, score = 0, speed = 1.8, shopTab = "balloons", previewItem = null, gameStarted = false;
 let entities = [];
-let particles = [];
-
-// ================= LOOP LOGIC =================
-function spawn() {
-  // Balão
-  if (frames % 60 === 0) {
-    let b = {
-      x: GAME_W+10, y: 40 + Math.random()*(GAME_H-120),
-      type: "balloon", w: 10, h: 12, bob: Math.random()*10,
-      color: DB.balloons.find(x=>x.id===SAVES.equipped.balloon)?.color || "#d00"
-    };
-    entities.push(b);
-  }
-  
-  // Serra
-  let diff = 180 - (score * 2);
-  if (diff < 80) diff = 80;
-  if (frames % diff === 0) {
-    let isTop = Math.random() > 0.5;
-    let s = {
-      x: GAME_W+10, y: isTop ? Math.random()*40 : GAME_H - 60 - Math.random()*20,
-      type: "saw", w: 20, h: 20, rot: 0
-    };
-    entities.push(s);
-  }
-}
+const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.16, jf: -3.5, reset() { this.y = 150; this.vy = 0; this.hasShield = (SAVES.equipped.skill === "shield"); gameStarted = false; }, update() { if(gameStarted) { this.vy += this.g; this.y += this.vy; } }, jump() { this.vy = this.jf; sfx("jump"); } };
 
 function updateGame() {
   player.update();
-  
-  // Velocidade sobe bem devagar
-  if (frames % 600 === 0) speed += 0.05;
-  if (speed > 3) speed = 3;
-
-  for (let i=entities.length-1; i>=0; i--) {
-    let e = entities[i];
-    
-    // Skill Imã
-    if (e.type === "balloon" && SAVES.equipped.skill === "magnet") {
-      let dx = player.x - e.x, dy = player.y - e.y;
-      let d = Math.sqrt(dx*dx + dy*dy);
-      if (d < 100) { e.x += dx/d*2; e.y += dy/d*2; }
-      else e.x -= speed;
-    } else {
-      e.x -= speed;
-    }
-    
-    // Lógica Serra
-    if (e.type === "saw") e.rot += 0.2;
-    if (e.type === "balloon") e.y += Math.sin(frames*0.1 + e.bob)*0.5;
-
-    // Colisão
-    if (checkColl(player, e)) {
-      if (e.type === "balloon") {
-        score++; SAVES.coins++;
-        sfx("coin");
-        createParticles(e.x, e.y, e.color, 5);
-        entities.splice(i, 1);
-      } else if (e.type === "saw") {
-        if (player.hasShield) {
-          player.hasShield = false;
-          entities.splice(i, 1);
-          createParticles(player.x, player.y, "#0ff", 10);
-        } else {
-          gameOver();
+  if (player.y > GAME_H - 24 || player.y < -20) { sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); return; }
+  if(gameStarted) {
+    for (let i = entities.length - 1; i >= 0; i--) {
+        let e = entities[i]; e.x -= speed;
+        if (player.x < e.x + e.w && player.x + player.w > e.x && player.y < e.y + e.h && player.y + player.h > e.y) {
+            if (e.type === "balloon") { score++; SAVES.coins++; sfx("coin"); entities.splice(i, 1); }
+            else if (e.type === "saw") { 
+              if (player.hasShield) { player.hasShield = false; entities.splice(i, 1); sfx("coin"); }
+              else { sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); }
+            }
         }
-      }
-    } else if (e.x < -30) {
-      entities.splice(i, 1);
+        if (e.x < -40) entities.splice(i, 1);
     }
-  }
-  
-  // Particulas
-  for(let i=particles.length-1; i>=0; i--) {
-    particles[i].x += particles[i].vx;
-    particles[i].y += particles[i].vy;
-    particles[i].life--;
-    if(particles[i].life <= 0) particles.splice(i,1);
+    if (frames % 90 === 0) entities.push({x:GAME_W+20, y:50+Math.random()*200, type:"balloon", w:12, h:14, color:DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color});
+    if (frames % 140 === 0) entities.push({x:GAME_W+20, y:Math.random()*280, type:"saw", w:20, h:20});
   }
 }
 
-function checkColl(p, e) {
-  let pad = 2; // Margem de erro
-  let pw = p.w - pad*2; let ph = p.h - pad*2;
-  return p.x+pad < e.x + e.w && p.x+pad+pw > e.x &&
-         p.y+pad < e.y + e.h && p.y+pad+ph > e.y;
-}
-
-function gameOver() {
-  state = "GAMEOVER";
-  sfx("die");
-  if (score > SAVES.best) SAVES.best = score;
-  saveData();
-}
-
-// ================= RENDER =================
-function drawSkin(x, y, id) {
-  // Cores Base
-  let cMain = "#ccc", cHair = "#d00", cFace = "#fff";
-  
-  if(id === "zombie") { cMain = "#354"; cHair = "#222"; cFace = "#689"; }
-  if(id === "shadow") { cMain = "#101"; cHair = "#000"; cFace = "#202"; }
-  if(id === "mime")   { cMain = "#000"; cHair = "#000"; cFace = "#fff"; }
-
-  // Corpo
-  ctx.fillStyle = cMain; ctx.fillRect(x+2, y+10, 10, 12);
-  // Cabeça
-  ctx.fillStyle = cFace; ctx.fillRect(x+1, y, 12, 10);
-  // Cabelo
-  ctx.fillStyle = cHair;
-  if (id==="mime") ctx.fillRect(x+2, y-1, 8, 2);
-  else { ctx.fillRect(x-1, y+2, 3, 5); ctx.fillRect(x+12, y+2, 3, 5); }
-  
-  // Detalhes Rosto
-  ctx.fillStyle = (id==="shadow")?"#fff":"#000";
-  ctx.fillRect(x+3, y+4, 2, 2); ctx.fillRect(x+9, y+4, 2, 2); // Olhos
-  if(id!=="zombie" && id!=="shadow") { ctx.fillStyle="#d00"; ctx.fillRect(x+6, y+6, 2, 2); } // Nariz
-}
-
-function drawGame() {
-  // BG
-  ctx.fillStyle = "#090510"; ctx.fillRect(0,0,GAME_W,GAME_H);
-  
-  // Parallax Arvores
-  ctx.fillStyle = "#160b24";
-  for(let i=0; i<7; i++) {
-    let h = 50 + Math.sin(i*132)*20;
-    ctx.fillRect((i*40 - frames*0.2)%280 - 40, GAME_H-h-20, 26, h);
-  }
-  // Chão
-  ctx.fillStyle = "#221133"; ctx.fillRect(0, GAME_H-24, GAME_W, 24);
-
-  // Entidades
-  entities.forEach(e => {
-    if(e.type === "balloon") {
-      ctx.fillStyle = "#fff"; ctx.fillRect(e.x+4, e.y+12, 1, 8); // Fio
-      ctx.fillStyle = e.color; drawRoundRect(ctx, e.x, e.y, 10, 12, 3);
-    } else {
-      ctx.save(); ctx.translate(e.x+10, e.y+10); ctx.rotate(e.rot);
-      ctx.fillStyle = "#888"; 
-      for(let j=0;j<4;j++){ ctx.rotate(Math.PI/2); ctx.fillRect(-2,-10,4,20); }
-      ctx.restore();
-    }
-  });
-
-  particles.forEach(p => {
-    ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 2, 2);
-  });
-
-  player.draw();
-
-  // HUD
-  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0,0,GAME_W,20);
-  ctx.fillStyle = "#fff"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left";
-  ctx.fillText(score, 5, 14);
-  ctx.textAlign="right"; ctx.fillStyle="#fd0";
-  ctx.fillText("$"+SAVES.coins, GAME_W-5, 14);
-}
-
-function drawMenu() {
-  drawGame(); // Fundo animado
-  ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(20, 60, GAME_W-40, 200);
-  
-  ctx.fillStyle="#f05"; ctx.textAlign="center"; 
-  ctx.font="12px 'Press Start 2P'"; ctx.fillText("VEM FLUTUAR", GAME_W/2, 90);
-  
-  ctx.fillStyle="#fff"; ctx.font="8px 'Press Start 2P'";
-  ctx.fillText("RECORD: "+SAVES.best, GAME_W/2, 120);
-  ctx.fillStyle="#fd0";
-  ctx.fillText("COINS: "+SAVES.coins, GAME_W/2, 135);
-  
-  drawBtn("JOGAR", GAME_W/2-40, 170, 80, 24, true);
-  drawBtn("LOJA", GAME_W/2-40, 205, 80, 24);
-}
-
-function drawShop() {
-  ctx.fillStyle = "#111"; ctx.fillRect(0,0,GAME_W,GAME_H);
-  
-  // Tabs
-  let tw = GAME_W/3;
-  let tabs = ["balloons", "skins", "skills"];
-  tabs.forEach((t, i) => {
-    ctx.fillStyle = (shopTab===t) ? "#444" : "#222";
-    ctx.fillRect(i*tw, 30, tw, 20);
-    ctx.fillStyle = "#fff"; ctx.textAlign="center"; ctx.font="8px 'Press Start 2P'";
-    let ico = (t==="balloons")?"🎈":(t==="skins"?"🤡":"⚡");
-    ctx.fillText(ico, i*tw + tw/2, 43);
-  });
-
-  // Lista
-  let list = DB[shopTab];
-  let y = 60;
-  
-  ctx.textAlign="right"; ctx.fillStyle="#fd0"; 
-  ctx.fillText("$"+SAVES.coins, GAME_W-10, 20);
-
-  list.forEach(item => {
-    let owned = SAVES[shopTab].includes(item.id);
-    let equipped = false;
-    if (shopTab==="balloons" && SAVES.equipped.balloon === item.id) equipped = true;
-    if (shopTab==="skins" && SAVES.equipped.skin === item.id) equipped = true;
-    if (shopTab==="skills" && SAVES.equipped.skill === item.id) equipped = true;
-
-    ctx.strokeStyle = equipped ? "#0f0" : "#444";
-    ctx.strokeRect(10, y, GAME_W-20, 30);
-    
-    // Nome
-    ctx.textAlign="left"; ctx.fillStyle="#fff";
-    ctx.fillText(item.name, 15, y+12);
-    // Preço
-    ctx.textAlign="right";
-    if (equipped) { ctx.fillStyle="#0f0"; ctx.fillText("USANDO", GAME_W-15, y+18); }
-    else if (owned) { ctx.fillStyle="#aaa"; ctx.fillText("USAR", GAME_W-15, y+18); }
-    else { ctx.fillStyle="#fe0"; ctx.fillText("$"+item.price, GAME_W-15, y+18); }
-    
-    y += 35;
-  });
-  
-  drawBtn("VOLTAR", GAME_W/2-30, GAME_H-30, 60, 20);
-}
-
-function drawBtn(txt, x, y, w, h, hl) {
-  ctx.fillStyle = hl ? "#c00" : "#333"; ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle = "#fff"; ctx.strokeRect(x,y,w,h);
-  ctx.fillStyle = "#fff"; ctx.textAlign="center"; ctx.font="8px 'Press Start 2P'";
-  ctx.fillText(txt, x+w/2, y+h/2+4);
-}
-
-function createParticles(x, y, c, q) {
-  for(let i=0; i<q; i++) particles.push({x:x, y:y, vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4, life:30, color:c});
-}
-
-// ================= INPUT & LOOP =================
-function resetGame() {
-  score=0; speed=1.0; entities=[]; particles=[];
-  player.reset();
-}
-
-function input(x, y) {
-  initAudio();
-  const r = canvas.getBoundingClientRect();
-  const scale = GAME_W / r.width;
-  const gx = (x - r.left) * scale;
-  const gy = (y - r.top) * scale;
+// ================= INPUT HANDLER =================
+function handleInput(e) {
+  if (e.cancelable) e.preventDefault();
+  const r = canvas.getBoundingClientRect(); const touch = (e.touches && e.touches[0]) || e;
+  const gx = (touch.clientX - r.left) * (GAME_W / r.width); const gy = (touch.clientY - r.top) * (GAME_H / r.height);
+  if (!musicStarted) startMusic();
 
   if (state === "MENU") {
-    if (gy > 170 && gy < 194) { resetGame(); state="GAME"; }
-    else if (gy > 205 && gy < 230) state="SHOP";
+    if (gy > 160 && gy < 190) { player.reset(); score=0; entities=[]; state="GAME"; }
+    else if (gy > 200 && gy < 230) state="SHOP";
+    else if (gy > 240 && gy < 270) state="SETTINGS";
   } 
-  else if (state === "GAME") {
-    player.jump();
-  }
-  else if (state === "GAMEOVER") {
-    state = "MENU";
-  }
-  else if (state === "SHOP") {
-    if (gy > GAME_H-30) { state="MENU"; return; }
-    if (gy > 30 && gy < 50) {
-      let tw = GAME_W/3;
-      if (gx < tw) shopTab="balloons";
-      else if (gx < tw*2) shopTab="skins";
-      else shopTab="skills";
-      return;
+  else if (state === "SETTINGS") {
+    if (gy > 115 && gy < 145) { if(gx < 80) currentLang="pt"; else if(gx < 160) currentLang="es"; else currentLang="en"; }
+    // Slider Música
+    if (gy > 160 && gy < 190) {
+      if (gx > 50 && gx < 80) volMusic = Math.max(0, volMusic - 0.1);
+      if (gx > 160 && gx < 190) volMusic = Math.min(1, volMusic + 0.1);
     }
-    // Lógica Compra
-    let list = DB[shopTab];
-    let yStart = 60;
-    list.forEach((item, i) => {
-      let iy = yStart + i*35;
-      if (gy > iy && gy < iy+30) {
-        let owned = SAVES[shopTab].includes(item.id);
-        if (owned) {
-          if (shopTab==="balloons") SAVES.equipped.balloon = item.id;
-          if (shopTab==="skins") SAVES.equipped.skin = item.id;
-          if (shopTab==="skills") SAVES.equipped.skill = (SAVES.equipped.skill===item.id)?null:item.id;
-          sfx("jump");
-        } else if (SAVES.coins >= item.price) {
-          SAVES.coins -= item.price;
-          SAVES[shopTab].push(item.id);
-          sfx("coin");
-        } else {
-          sfx("die");
-        }
+    // Slider SFX
+    if (gy > 200 && gy < 230) {
+      if (gx > 50 && gx < 80) volSfx = Math.max(0, volSfx - 0.1);
+      if (gx > 160 && gx < 190) volSfx = Math.min(1, volSfx + 0.1);
+    }
+    if (gy > 300) { state="MENU"; saveData(); }
+  } 
+  else if (state === "SHOP") {
+    if (previewItem) {
+      if (gy > 230 && gy < 265) {
+        if (SAVES[shopTab].includes(previewItem.id)) {
+          if (shopTab==="balloons") SAVES.equipped.balloon = previewItem.id;
+          else if (shopTab==="skins") SAVES.equipped.skin = previewItem.id;
+          else if (shopTab==="skills") SAVES.equipped.skill = (SAVES.equipped.skill===previewItem.id)?null:previewItem.id;
+          sfx("coin"); previewItem = null;
+        } else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; SAVES[shopTab].push(previewItem.id); sfx("coin"); }
         saveData();
-      }
-    });
-  }
+      } else if (gy > 280) previewItem = null;
+    } else {
+      if (gy > 320) state="MENU";
+      else if (gy > 30 && gy < 55) { shopTab = ["balloons", "skins", "skills"][Math.floor(gx/(GAME_W/3))]; }
+      else DB[shopTab].forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) previewItem = item; });
+    }
+  } 
+  else if (state === "GAME") { gameStarted = true; player.jump(); }
+  else if (state === "GAMEOVER") state = "MENU";
 }
 
-window.addEventListener("mousedown", e=>input(e.clientX, e.clientY));
-window.addEventListener("touchstart", e=>{e.preventDefault(); input(e.touches[0].clientX, e.touches[0].clientY);}, {passive:false});
-window.addEventListener("keydown", e=>{ if(e.code==="Space") { if(state==="GAME") player.jump(); else input(window.innerWidth/2, window.innerHeight/2); } });
+window.addEventListener("mousedown", handleInput);
+window.addEventListener("touchstart", handleInput, {passive:false});
 
-// Loop Principal
+// ================= LOOP PRINCIPAL =================
 function loop() {
-  requestAnimationFrame(loop);
   frames++;
-  ctx.clearRect(0,0,GAME_W,GAME_H);
-  
-  if(state==="GAME") { spawn(); updateGame(); drawGame(); }
-  else if(state==="MENU") drawMenu();
-  else if(state==="SHOP") drawShop();
-  else if(state==="GAMEOVER") { drawGame(); ctx.fillStyle="rgba(0,0,0,0.8)"; ctx.fillRect(20,100,GAME_W-40,80); ctx.fillStyle="#f00"; ctx.textAlign="center"; ctx.fillText("FIM DE JOGO", GAME_W/2, 145); }
+  instaBtn.style.display = (state === "MENU" || state === "SETTINGS") ? "block" : "none";
+
+  if(state==="GAME") { 
+    updateGame(); drawDerryCity(speed);
+    entities.forEach(e => {
+        if(e.type === "balloon") drawBallon(e.x, e.y, e.color);
+        else { ctx.save(); ctx.translate(e.x+10, e.y+10); ctx.rotate(frames*0.1); ctx.fillStyle="#444"; for(let j=0;j<4;j++){ ctx.rotate(Math.PI/2); ctx.fillRect(-2,-10,4,20); } ctx.restore(); }
+    });
+    drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
+    drawSkin(player.x, player.y, SAVES.equipped.skin);
+    ctx.fillStyle="#fff"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 10, 20);
+    ctx.textAlign="right"; ctx.fillStyle="#fd0"; ctx.fillText("$"+SAVES.coins, GAME_W-10, 20);
+  } 
+  else if(state==="MENU") {
+    drawDerryCity(0.4);
+    ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "#f00";
+    ctx.fillText("VAMOS", GAME_W/2, 60); ctx.fillText("FLUTUAR", GAME_W/2, 90);
+    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="#f00"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="#fff"; ctx.font="8px 'Press Start 2P'"; ctx.fillText(t, 120, y+20); };
+    btn(LANGS[currentLang].play, 160); btn(LANGS[currentLang].shop, 200); btn(LANGS[currentLang].settings, 240);
+  } 
+  else if(state==="SETTINGS") {
+    ctx.fillStyle="#05000a"; ctx.fillRect(0,0,GAME_W,GAME_H); 
+    ctx.fillStyle="#f00"; ctx.textAlign="center"; ctx.font="10px 'Press Start 2P'"; ctx.fillText(LANGS[currentLang].settings, 120, 40);
+    ["PT", "ES", "EN"].forEach((l, i) => { ctx.fillStyle = currentLang===l.toLowerCase()?"#f00":"#444"; ctx.fillText(l, 60+i*60, 130); });
+    
+    const drawSlider = (label, y, val) => {
+      ctx.fillStyle="#fff"; ctx.font="7px 'Press Start 2P'"; ctx.fillText(label, 120, y);
+      ctx.fillStyle="#222"; ctx.fillRect(50, y+10, 30, 20); ctx.fillText("-", 65, y+25);
+      ctx.fillStyle="#222"; ctx.fillRect(160, y+10, 30, 20); ctx.fillText("+", 175, y+25);
+      ctx.fillStyle="#444"; ctx.fillRect(85, y+18, 70, 4);
+      ctx.fillStyle="#f00"; ctx.fillRect(85, y+18, val*70, 4);
+    };
+    drawSlider(LANGS[currentLang].music, 160, volMusic);
+    drawSlider(LANGS[currentLang].sfx, 205, volSfx);
+    
+    ctx.fillStyle="#222"; ctx.fillRect(70, 310, 100, 30); ctx.fillStyle="#fff"; ctx.fillText(LANGS[currentLang].back, 120, 330);
+  } 
+  else if(state==="SHOP") {
+    ctx.fillStyle="#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
+    ["balloons", "skins", "skills"].forEach((t, i) => { 
+      ctx.fillStyle=shopTab===t?"#f00":"#222"; ctx.fillRect(i*80, 30, 80, 25); 
+      ctx.fillStyle="#fff"; ctx.font="5px 'Press Start 2P'"; ctx.fillText(LANGS[currentLang][t], i*80+40, 46); 
+    });
+    DB[shopTab].forEach((item, i) => { 
+      let y=70+i*42; ctx.fillStyle="#111"; ctx.fillRect(10, y, 220, 35); 
+      ctx.fillStyle="#fff"; ctx.font="7px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(LANGS[currentLang].items[item.id], 20, y+22); 
+      ctx.textAlign="right"; ctx.fillStyle="#fd0"; ctx.fillText(SAVES[shopTab].includes(item.id)? "OK" : "$"+item.price, 220, y+22); 
+    });
+    ctx.textAlign="center"; ctx.fillText(LANGS[currentLang].back, 120, 345);
+
+    if(previewItem) {
+      ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H); 
+      ctx.fillStyle="#111"; ctx.strokeStyle="#f00"; ctx.fillRect(20,40,200,280); ctx.strokeRect(20,40,200,280);
+      ctx.fillStyle="#fff"; ctx.font="10px 'Press Start 2P'"; ctx.fillText(LANGS[currentLang].items[previewItem.id], 120, 80);
+      
+      let py = 120 + Math.sin(frames*0.1)*5;
+      if(shopTab==="balloons") drawBallon(105, py, previewItem.color, 2.5);
+      else if(shopTab==="skins") drawSkin(90, py, previewItem.id, 4);
+      else if(shopTab==="skills") drawSkill(110, py+10, previewItem.id);
+
+      ctx.font="6px 'Press Start 2P'"; ctx.fillText(LANGS[currentLang].descs[previewItem.id], 120, 210);
+      let owned = SAVES[shopTab].includes(previewItem.id); 
+      ctx.fillStyle=owned?"#d00":"#444"; ctx.fillRect(60, 235, 120, 35); 
+      ctx.fillStyle="#fff"; ctx.fillText(owned?LANGS[currentLang].use:LANGS[currentLang].buy, 120, 258);
+      ctx.fillText(LANGS[currentLang].close, 120, 300);
+    }
+  } 
+  else if(state==="GAMEOVER") { 
+    ctx.fillStyle="rgba(0,0,0,0.8)"; ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle="red"; ctx.font="12px 'Press Start 2P'"; ctx.textAlign="center"; ctx.fillText(LANGS[currentLang].over, 120, 180); 
+  }
+  requestAnimationFrame(loop);
 }
 loop();
-
-} catch (err) {
-  // Captura erros silenciosos e mostra na tela
-  document.getElementById("error-msg").style.display = "block";
-  document.getElementById("error-msg").innerHTML += "<br>"+err.message;
-}
 </script>
 </body>
 </html>
