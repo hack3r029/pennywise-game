@@ -10,6 +10,7 @@
   #game-wrapper { position: relative; box-shadow: 0 0 50px rgba(100, 0, 0, 0.6); border: 4px solid #1a1a1a; overflow: hidden; background: #000; width: 240px; height: 360px; }
   canvas { display: block; background: #000; image-rendering: pixelated; width: 100%; height: 100%; }
   .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.15) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; }
+  #credits { position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 6px; color: #666; letter-spacing: 1px; }
 </style>
 </head>
 <body>
@@ -17,15 +18,15 @@
 <div id="game-wrapper">
   <canvas id="game"></canvas>
   <div class="overlay"></div>
+  <div id="credits">BY: @CARLUZSNT</div>
 </div>
 
 <script>
-// ================= CONFIGURAÇÕES E TRADUÇÕES =================
+// ================= CONFIGURAÇÕES =================
 const LANGS = {
-  pt: { play: "JOGAR", shop: "LOJA", settings: "CONFIGS", back: "VOLTAR", close: "FECHAR", buy: "COMPRAR", use: "USAR", using: "USANDO", score: "RECORD", balloons: "BALOES", skins: "SKINS", skills: "PODERES", over: "FIM DE JOGO", retry: "RECOMECAR", menu: "MENU", items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON", classic: "PALHACO", neon: "CYBER", ghost: "FANTASMA", pump: "ABOBORA", magnet: "IMA", shield: "ESCUDO", multi: "X2 PONTOS" }, descs: { red: "O CLASSICO.", blue: "CEU PROFUNDO.", green: "BRILHA MUITO.", gold: "PURO LUXO.", cyan: "LUZ VIBRANTE.", classic: "ASSUSTADOR.", neon: "BRILHO ROSA.", ghost: "ALMA PENADA.", pump: "HALLOWEEN.", magnet: "SUGA OS BALOES.", shield: "MAIS 1 VIDA.", multi: "BALAO VALE x2." } }
+  pt: { play: "JOGAR", shop: "LOJA", back: "VOLTAR", close: "FECHAR", buy: "COMPRAR", use: "EQUIPAR", used: "EQUIPADO", soon: "EM BREVE", items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON" } }
 };
 
-let currentLang = "pt";
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: false });
 const GAME_W = 240; const GAME_H = 360;
@@ -39,131 +40,111 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
-// ================= DATA & SAVES =================
-let volMusic = 0.4; let volSfx = 0.6;
+// ================= DATA =================
 const DB = {
-  balloons: [{id:"red", price:0, color:"#d00"}, {id:"blue", price:50, color:"#2ad"}, {id:"green", price:100, color:"#0f0"}, {id:"gold", price:300, color:"#ffd700"}, {id:"cyan", price:500, color:"#0ffff"}],
-  skins: [{id:"classic", price:0}, {id:"neon", price:200}, {id:"ghost", price:450}, {id:"pump", price:600}],
-  skills: [{id:"magnet", price:500}, {id:"shield", price:800}, {id:"multi", price:1000}]
+  balloons: [
+    {id:"red", price:0, color:"#ff0000"}, 
+    {id:"blue", price:50, color:"#0088ff"}, 
+    {id:"green", price:150, color:"#00ff00"}, 
+    {id:"gold", price:500, color:"#ffcc00"}, 
+    {id:"cyan", price:1000, color:"#00ffff"}
+  ]
 };
+
 let SAVES = {
   coins: parseInt(localStorage.getItem("coins")) || 0,
   best: parseInt(localStorage.getItem("best")) || 0,
   balloons: JSON.parse(localStorage.getItem("myBalloons")) || ["red"],
-  skins: JSON.parse(localStorage.getItem("mySkins")) || ["classic"],
-  skills: JSON.parse(localStorage.getItem("mySkills")) || [],
-  equipped: { balloon: localStorage.getItem("eqBalloon") || "red", skin: localStorage.getItem("eqSkin") || "classic", skill: localStorage.getItem("eqSkill") || null }
+  equipped: { balloon: localStorage.getItem("eqBalloon") || "red" }
 };
 
 function saveData() {
-  localStorage.setItem("coins", SAVES.coins); localStorage.setItem("best", SAVES.best);
-  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons)); localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
-  localStorage.setItem("mySkills", JSON.stringify(SAVES.skills)); localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
-  localStorage.setItem("eqSkin", SAVES.equipped.skin); localStorage.setItem("eqSkill", SAVES.equipped.skill || "");
+  localStorage.setItem("coins", SAVES.coins);
+  localStorage.setItem("best", SAVES.best);
+  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
+  localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
 }
 
 // ================= AUDIO =================
-let actx = null, musicStarted = false;
-function startMusic() {
-  if (musicStarted) return; musicStarted = true;
-  actx = new (window.AudioContext || window.webkitAudioContext)();
-  const loop = () => { setTimeout(loop, 4000); }; loop();
-}
-function sfx(type) {
-  if (!actx) return;
+let actx = null;
+function initAudio() { if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); }
+function sfx(freq, type, duration) {
+  if(!actx) return;
   const osc = actx.createOscillator(); const g = actx.createGain();
-  osc.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(0.05, actx.currentTime);
-  if (type === "jump") { osc.frequency.setValueAtTime(200, actx.currentTime); osc.frequency.exponentialRampToValueAtTime(400, actx.currentTime+0.1); osc.start(); osc.stop(actx.currentTime+0.1); }
-  else if (type === "coin") { osc.frequency.setValueAtTime(800, actx.currentTime); osc.start(); osc.stop(actx.currentTime+0.1); }
-  else if (type === "die") { osc.frequency.setValueAtTime(150, actx.currentTime); osc.start(); osc.stop(actx.currentTime+0.3); }
+  osc.type = type; osc.frequency.setValueAtTime(freq, actx.currentTime);
+  g.gain.setValueAtTime(0.1, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + duration);
+  osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime + duration);
 }
 
-// ================= RENDERING =================
-let cityX1 = 0, cityX2 = 0;
-function drawDerryCity(speedMult) {
-  cityX1 -= speedMult * 0.3; cityX2 -= speedMult * 0.8;
+// ================= DRAWING =================
+function drawDerryCity() {
   ctx.fillStyle = "#05000a"; ctx.fillRect(0, 0, GAME_W, GAME_H);
-  ctx.fillStyle = "#0d0616";
-  for(let i=0; i<6; i++) { let x = (cityX1 + i*80) % (80 * 6); if (x < 0) x += (80 * 6); ctx.fillRect(x - 80, 180, 50, 150); }
-  for(let i=0; i<5; i++) { let x = (cityX2 + i*100) % (100 * 5); if (x < 0) x += (100 * 5); ctx.fillStyle = "#150a1d"; ctx.fillRect(x - 100, 220, 70, 140); }
+  ctx.fillStyle = "#0d0616"; ctx.fillRect(0, 180, GAME_W, 180);
   ctx.fillStyle = "#000"; ctx.fillRect(0, 320, GAME_W, 40);
 }
 
-function drawSkin(x, y, id, sc = 1) {
-  let cB = "#ccc", cH = "#fff", cD = "#d00";
-  if(id === "neon") { cB = "#f0f"; cH = "#f0f"; cD = "#0f0"; }
-  else if(id === "ghost") { cB = "#eef"; cH = "#fff"; cD = "#0ff"; }
-  else if(id === "pump") { cB = "#d50"; cH = "#f80"; cD = "#000"; }
-  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
-  // Cabelo
-  ctx.fillStyle = cD; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
-  // Corpo e Cabeça
-  ctx.fillStyle = cB; ctx.fillRect(2, 10, 10, 12); 
-  ctx.fillStyle = cH; ctx.fillRect(1, 0, 12, 10);
-  ctx.fillStyle = (id === "pump") ? "#000" : "#222"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
+function drawSkin(x, y) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
+  ctx.fillStyle = "#ccc"; ctx.fillRect(2, 10, 10, 12);
+  ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10);
+  ctx.fillStyle = "#222"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
   ctx.restore();
 }
 
 function drawBallon(x, y, color, sc=1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, 14); ctx.lineTo(6, 25); ctx.stroke();
+  // Linha do balão
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, 14); ctx.lineTo(6, 22); ctx.stroke();
+  // Corpo do balão
   ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(6, 7, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+  // Brilho interno (ajuda a ver cores muito claras)
+  ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.beginPath(); ctx.ellipse(4, 5, 2, 3, 0, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
-function drawSkillIcon(x, y, id) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(2, 2);
-    if(id === "magnet") { ctx.fillStyle="red"; ctx.fillRect(0,0,10,5); ctx.fillStyle="silver"; ctx.fillRect(0,5,3,5); ctx.fillRect(7,5,3,5); }
-    else if(id === "shield") { ctx.fillStyle="#0ff"; ctx.beginPath(); ctx.arc(5,5,6,0,Math.PI*2); ctx.fill(); }
-    else if(id === "multi") { ctx.fillStyle="#fd0"; ctx.font="bold 8px Arial"; ctx.fillText("X2", 0, 8); }
-    ctx.restore();
+function drawSaw(x, y, angle) {
+  ctx.save(); ctx.translate(x + 10, y + 10); ctx.rotate(angle);
+  ctx.fillStyle = "#666";
+  for(let i=0; i<8; i++) { ctx.rotate(Math.PI/4); ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(4, -8); ctx.lineTo(-4, -8); ctx.fill(); }
+  ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
 }
 
 // ================= GAME LOGIC =================
-let state = "MENU", frames = 0, score = 0, speed = 1.8, shopTab = "balloons", previewItem = null, gameStarted = false;
-let entities = []; let fTxt = { x:0, y:0, life:0, t:"" };
+let state = "MENU", frames = 0, score = 0, speed = 2, shopTab = "balloons", previewItem = null, gameStarted = false;
+let entities = []; 
 
-const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.16, jf: -3.5, aura: 0, 
-  reset() { this.y = 150; this.vy = 0; this.hasShield = (SAVES.equipped.skill === "shield"); this.aura = 0; gameStarted = false; fTxt.life=0; entities=[]; score=0; }, 
-  update() { if(gameStarted) { this.vy += this.g; this.y += this.vy; if(this.aura > 0) this.aura--; } }, 
-  jump() { this.vy = this.jf; sfx("jump"); } 
+const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.18, jf: -3.8, 
+  reset() { this.y = 150; this.vy = 0; gameStarted = false; entities=[]; score=0; }
 };
 
 function updateGame() {
-  player.update();
-  if (player.y > GAME_H - 24 || player.y < -20) { sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); return; }
-  if(gameStarted) {
-    for (let i = entities.length - 1; i >= 0; i--) {
-        let e = entities[i]; 
-        if(SAVES.equipped.skill === "magnet" && e.type === "balloon") {
-            let dx = player.x - e.x, dy = player.y - e.y;
-            if(Math.sqrt(dx*dx+dy*dy) < 80) { e.x += dx*0.1; e.y += dy*0.1; }
-        }
-        e.x -= speed;
-        if (player.x < e.x + 15 && player.x + 14 > e.x && player.y < e.y + 15 && player.y + 20 > e.y) {
-            if (e.type === "balloon") { 
-                let val = (SAVES.equipped.skill === "multi") ? 2 : 1;
-                score += val; SAVES.coins += val; sfx("coin"); 
-                if(val > 1) fTxt = {x:e.x, y:e.y, life:60, t:"+2"};
-                entities.splice(i, 1); 
-            } else if (e.type === "saw") { 
-              if (player.hasShield) { player.hasShield = false; player.aura = 300; fTxt = {x:player.x, y:player.y, life:300, t:"+1"}; sfx("coin"); entities.splice(i, 1); }
-              else if (player.aura <= 0) { sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); }
-            }
-        }
-        if (e.x < -40) entities.splice(i, 1);
+  if(!gameStarted) return;
+  player.vy += player.g; player.y += player.vy;
+  if (player.y > GAME_H - 40 || player.y < -35) { sfx(100, 'sawtooth', 0.3); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); return; }
+  
+  frames++;
+  for (let i = entities.length - 1; i >= 0; i--) {
+    let e = entities[i]; e.x -= speed;
+    if(e.type === "saw") e.angle += 0.2;
+    if (player.x < e.x + 18 && player.x + 14 > e.x && player.y < e.y + 18 && player.y + 22 > e.y) {
+      if (e.type === "balloon") { score++; SAVES.coins++; sfx(800, 'sine', 0.1); entities.splice(i, 1); }
+      else { sfx(100, 'sawtooth', 0.3); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); }
     }
-    if (frames % 90 === 0) entities.push({x:GAME_W+20, y:50+Math.random()*200, type:"balloon", color:DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color});
-    if (frames % 140 === 0) entities.push({x:GAME_W+20, y:Math.random()*280, type:"saw"});
+    if (e.x < -40) entities.splice(i, 1);
   }
+  if (frames % 100 === 0) entities.push({x:GAME_W+20, y:50+Math.random()*200, type:"balloon", color:DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color});
+  if (frames % 160 === 0) entities.push({x:GAME_W+20, y:Math.random()*280, type:"saw", angle: 0});
 }
 
 // ================= INPUT =================
 function handleInput(e) {
   if (e.cancelable) e.preventDefault();
+  initAudio();
   const r = canvas.getBoundingClientRect(); const touch = (e.touches && e.touches[0]) || e;
   const gx = (touch.clientX - r.left) * (GAME_W / r.width); const gy = (touch.clientY - r.top) * (GAME_H / r.height);
-  if (!musicStarted) startMusic();
+
   if (state === "MENU") {
     if (gy > 160 && gy < 190) { player.reset(); state="GAME"; }
     else if (gy > 200 && gy < 230) state="SHOP";
@@ -173,57 +154,73 @@ function handleInput(e) {
   } else if (state === "SHOP") {
     if (previewItem) {
       if (gy > 230 && gy < 265) {
-        if (SAVES[shopTab].includes(previewItem.id)) {
-            if (shopTab === "skills") SAVES.equipped.skill = (SAVES.equipped.skill === previewItem.id) ? null : previewItem.id;
-            else SAVES.equipped[shopTab.slice(0,-1)] = previewItem.id;
-            previewItem = null;
-        } else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; SAVES[shopTab].push(previewItem.id); }
-        saveData(); sfx("coin");
+        if (SAVES.balloons.includes(previewItem.id)) { SAVES.equipped.balloon = previewItem.id; sfx(400, 'sine', 0.1); }
+        else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; SAVES.balloons.push(previewItem.id); sfx(600, 'sine', 0.2); }
+        saveData();
       } else if (gy > 280) previewItem = null;
-    } else { if (gy > 320) state="MENU"; else if (gy > 30 && gy < 55) shopTab = ["balloons", "skins", "skills"][Math.floor(gx/80)]; else DB[shopTab].forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) previewItem = item; }); }
-  } else if (state === "GAME") { gameStarted = true; player.jump(); }
+    } else {
+      if (gy > 320) state="MENU";
+      else if (gy > 30 && gy < 55) shopTab = ["balloons", "skins", "skills"][Math.floor(gx/80)];
+      else if (shopTab === "balloons") DB.balloons.forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) previewItem = item; });
+    }
+  } else if (state === "GAME") { gameStarted = true; player.vy = player.jf; sfx(400, 'sine', 0.05); }
 }
 window.addEventListener("touchstart", handleInput, {passive:false});
 window.addEventListener("mousedown", handleInput);
 
 // ================= LOOP =================
 function loop() {
-  frames++;
+  drawDerryCity();
   if(state==="GAME") { 
-    updateGame(); drawDerryCity(1.8);
-    entities.forEach(e => {
-        if(e.type === "balloon") drawBallon(e.x, e.y, e.color);
-        else { ctx.fillStyle="#555"; ctx.fillRect(e.x, e.y, 20, 20); }
-    });
-    if(player.aura > 0) { ctx.strokeStyle="yellow"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(player.x+7, player.y+10, 20, 0, Math.PI*2); ctx.stroke(); }
+    updateGame();
+    entities.forEach(e => { if(e.type === "balloon") drawBallon(e.x, e.y, e.color); else drawSaw(e.x, e.y, e.angle); });
     drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
-    drawSkin(player.x, player.y, SAVES.equipped.skin);
+    drawSkin(player.x, player.y);
     ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 10, 20);
     ctx.textAlign="right"; ctx.fillText("$"+SAVES.coins, GAME_W-10, 20);
-    if(fTxt.life > 0) { ctx.textAlign="center"; ctx.fillText(fTxt.t, fTxt.x, fTxt.y); fTxt.y--; fTxt.life--; }
   } else if(state==="MENU") {
-    drawDerryCity(0.4); ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
-    ctx.fillText("VAMOS", GAME_W/2, 60); ctx.fillText("FLUTUAR", GAME_W/2, 90);
+    ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
+    ctx.fillText("VAMOS", 120, 60); ctx.fillText("FLUTUAR", 120, 90);
     const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="red"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText(t, 120, y+20); };
     btn("JOGAR", 160); btn("LOJA", 200);
   } else if(state==="GAMEOVER") {
     ctx.fillStyle="rgba(0,0,0,0.85)"; ctx.fillRect(0,0,GAME_W,GAME_H);
-    ctx.fillStyle="red"; ctx.textAlign="center"; ctx.font="12px 'Press Start 2P'"; ctx.fillText("FIM DE JOGO", 120, 100);
-    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="white"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText(t, 120, y+20); };
+    ctx.fillStyle="red"; ctx.textAlign="center"; ctx.fillText("FIM DE JOGO", 120, 100);
+    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="white"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="white"; ctx.fillText(t, 120, y+20); };
     btn("RECOMECAR", 200); btn("MENU", 240);
   } else if(state==="SHOP") {
     ctx.fillStyle="#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
-    ["balloons", "skins", "skills"].forEach((t, i) => { ctx.fillStyle=shopTab===t?"red":"#222"; ctx.fillRect(i*80, 30, 80, 25); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.textAlign="center"; ctx.fillText(t.toUpperCase(), i*80+40, 46); });
-    DB[shopTab].forEach((item, i) => { let y=70+i*42; ctx.fillStyle="#111"; ctx.fillRect(10, y, 220, 35); ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(LANGS.pt.items[item.id], 20, y+22); });
-    ctx.textAlign="center"; ctx.fillText("VOLTAR", 120, 345);
+    ["BALÕES", "SKINS", "PODERES"].forEach((t, i) => { 
+        ctx.fillStyle=(i===0&&shopTab==="balloons")||(i===1&&shopTab==="skins")||(i===2&&shopTab==="skills")?"red":"#222"; 
+        ctx.fillRect(i*80, 30, 80, 25); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.textAlign="center"; ctx.fillText(t, i*80+40, 46); 
+    });
+    
+    if(shopTab === "balloons") {
+      DB.balloons.forEach((item, i) => { 
+        let y=70+i*42; let isUsed = SAVES.equipped.balloon === item.id;
+        ctx.fillStyle=isUsed?"#030":"#111"; ctx.fillRect(10, y, 220, 35); 
+        ctx.strokeStyle=isUsed?"#0f0":"#333"; ctx.strokeRect(10, y, 220, 35);
+        ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(LANGS.pt.items[item.id], 20, y+22);
+        ctx.textAlign="right"; ctx.fillStyle=isUsed?"#0f0":"#ffd700"; ctx.fillText(isUsed?"USANDO": (SAVES.balloons.includes(item.id)?"TER":"$"+item.price), 220, y+22);
+      });
+    } else { ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="center"; ctx.fillText("EM BREVE", 120, 180); }
+    ctx.textAlign="center"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("VOLTAR", 120, 345);
+    
     if(previewItem) {
       ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H);
       ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText(LANGS.pt.items[previewItem.id], 120, 80);
-      if(shopTab==="balloons") drawBallon(105, 120, previewItem.color, 2.5); 
-      else if(shopTab==="skins") drawSkin(105, 120, previewItem.id, 3);
-      else drawSkillIcon(105, 120, previewItem.id);
-      ctx.fillStyle="red"; ctx.fillRect(60, 235, 120, 35); ctx.fillStyle="white"; ctx.fillText("OK", 120, 258);
+      drawBallon(105, 120, previewItem.color, 2.5);
+      
+      let isOwned = SAVES.balloons.includes(previewItem.id);
+      let isEquipped = SAVES.equipped.balloon === previewItem.id;
+      
+      ctx.fillStyle = isEquipped ? "#050" : "red";
+      ctx.fillRect(60, 235, 120, 35);
+      ctx.fillStyle = "white";
+      let btnText = isEquipped ? "EQUIPADO" : (isOwned ? "EQUIPAR" : "COMPRAR");
+      ctx.fillText(btnText, 120, 258);
       ctx.fillText("FECHAR", 120, 300);
+      if(isEquipped) { ctx.strokeStyle="#0f0"; ctx.strokeRect(60, 235, 120, 35); }
     }
   }
   requestAnimationFrame(loop);
