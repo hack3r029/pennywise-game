@@ -1,24 +1,28 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 <title>Vem Flutuar 🎈</title>
 
 <style>
-body{
-    margin:0;
-    background:#0b0018;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    font-family:monospace;
+html,body{
+  margin:0;
+  height:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#0b0018;
+  font-family:monospace;
+  touch-action:manipulation;
 }
 canvas{
-    image-rendering:pixelated;
-    border:6px solid #000;
-    background:#000;
+  border:6px solid #000;
+  image-rendering:pixelated;
+  background:#000;
+  width:95vmin;
+  height:auto;
+  max-height:95vmax;
 }
 </style>
 </head>
@@ -28,11 +32,11 @@ canvas{
 
 <script>
 // ================= CONFIG =================
-const SCALE = 3;
 const W = 160, H = 240;
+const SCALE = 4; // 🔼 layout maior
 
 const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { alpha:false });
 canvas.width = W * SCALE;
 canvas.height = H * SCALE;
 ctx.scale(SCALE, SCALE);
@@ -42,299 +46,308 @@ ctx.font = "8px monospace";
 let state = "menu";
 let score = 0;
 let coins = Number(localStorage.getItem("coins")) || 0;
-let best = Number(localStorage.getItem("best")) || 0;
+let best  = Number(localStorage.getItem("best"))  || 0;
 let frame = 0;
-let canTap = true;
+let locked = false;
 
-// ================= AUDIO (SÓ GAME OVER) =================
-let audioCtx = null;
+// ================= AUDIO =================
+let audioCtx=null;
 function initAudio(){
-    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
 }
-function loseMusic(){
-    if(!audioCtx) return;
-    const seq = [220,180,140];
-    seq.forEach((f,i)=>{
-        setTimeout(()=>{
-            const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-            o.type="square";o.frequency.value=f;
-            g.gain.value=0.05;
-            o.connect(g);g.connect(audioCtx.destination);
-            o.start();o.stop(audioCtx.currentTime+0.3);
-        },i*300);
-    });
+function tone(f,d=0.1){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type="square"; o.frequency.value=f; g.gain.value=0.05;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime+d);
 }
 
-// ================= CENÁRIO DERRY (SCROLL) =================
-let bgX = 0;
-let signX = 260;
+// ================= SHOP DATA =================
+let ownedColors = JSON.parse(localStorage.getItem("ownedColors")) || ["red"];
+let balloonColor = localStorage.getItem("balloonColor") || "red";
+
+const balloonShop = [
+  {id:"red",name:"Vermelho",price:0,color:"#ff0000"},
+  {id:"blue",name:"Azul",price:10,color:"#0066ff"},
+  {id:"pink",name:"Rosa",price:15,color:"#ff66cc"},
+  {id:"purple",name:"Roxo",price:20,color:"#8000ff"},
+  {id:"polly",name:"Pollyana",price:50,special:true}
+];
+
+function balloonCol(){
+  const it=balloonShop.find(i=>i.id===balloonColor);
+  return it?.color||"#ff0000";
+}
+
+// ================= BACKGROUND (ANDANDO PRA ESQUERDA) =================
+let bgX=0;
+let signX=W+200;
 
 function drawBackground(){
-    // céu
-    ctx.fillStyle = "#12001f";
-    ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#12001f";
+  ctx.fillRect(0,0,W,H);
 
-    // lua
-    ctx.fillStyle="#ddd";
-    ctx.fillRect(120,20,12,12);
+  ctx.fillStyle="#ddd";
+  ctx.fillRect(120,20,12,12);
 
-    // prédios (parallax)
-    for(let layer=0; layer<3; layer++){
-        const speed = 0.2 + layer*0.2;
-        const color = ["#1a0033","#24004a","#300066"][layer];
-        for(let i=0;i<20;i++){
-            const x = (i*16 - (bgX*speed)%16);
-            const h = 40 + (i*13)%30 + layer*10;
-            ctx.fillStyle=color;
-            ctx.fillRect(x,H-h-10,16,h);
-        }
+  for(let l=0;l<3;l++){
+    const sp=0.2+l*0.25;
+    const col=["#1a0033","#24004a","#300066"][l];
+    for(let i=0;i<22;i++){
+      const x=i*16-(bgX*sp)%16;
+      const h=40+((i*13+l*7)%40);
+      ctx.fillStyle=col;
+      ctx.fillRect(x,H-h-10,16,h);
     }
+  }
 
-    // circo
-    ctx.fillStyle="#6b0000";
-    ctx.fillRect(30-bgX*0.6,H-60,100,30);
-    ctx.fillStyle="#ff0000";
-    for(let i=0;i<7;i++){
-        ctx.fillRect(30-bgX*0.6+i*14,H-60,7,30);
-    }
+  // circo
+  const tentX=30-bgX*0.5;
+  ctx.fillStyle="#7a0000";
+  ctx.fillRect(tentX,H-58,96,28);
+  ctx.fillStyle="#ff0000";
+  for(let i=0;i<7;i++) ctx.fillRect(tentX+i*14,H-58,7,28);
 
-    // placa WELCOME TO DERRY (passando)
-    ctx.fillStyle="#111";
-    ctx.fillRect(signX, H-90, 110, 14);
-    ctx.fillStyle="#fff";
-    ctx.fillText("WELCOME TO DERRY", signX+6, H-80);
+  // placa
+  ctx.fillStyle="#111";
+  ctx.fillRect(signX,H-88,112,14);
+  ctx.fillStyle="#fff";
+  ctx.fillText("WELCOME TO DERRY",signX+6,H-78);
 
-    // chão
-    ctx.fillStyle="#050010";
-    ctx.fillRect(0,H-10,W,10);
+  ctx.fillStyle="#050010";
+  ctx.fillRect(0,H-10,W,10);
 
-    bgX += 0.4;
-    signX -= 0.4;
-
-    if(signX < -140){
-        signX = W + Math.random()*200;
-    }
+  bgX+=0.8;
+  signX-=0.8;
+  if(signX<-160) signX=W+Math.random()*300;
 }
 
 // ================= PLAYER =================
-const player = {
-    x: 40,
-    y: 80,
-    w: 14,
-    h: 20,
-    vy: 0,
-
-    reset(){
-        this.y = 80;
-        this.vy = 0;
-    },
-
-    update(){
-        this.vy += 0.07;
-        this.y += this.vy;
-        if(this.y + this.h >= H-10){
-            this.y = H-10-this.h;
-            gameOver();
-        }
-    },
-
-    jump(){
-        this.vy = -1.6;
-    },
-
-    draw(){
-        // cabelo
-        ctx.fillStyle="#ff6a00";
-        ctx.fillRect(this.x-2,this.y,4,10);
-        ctx.fillRect(this.x+12,this.y,4,10);
-
-        // cabeça
-        ctx.fillStyle="#fff";
-        ctx.fillRect(this.x+2,this.y,10,8);
-
-        // olhos
-        ctx.fillStyle="#000";
-        ctx.fillRect(this.x+4,this.y+3,2,2);
-        ctx.fillRect(this.x+8,this.y+3,2,2);
-
-        // marcas vermelhas
-        ctx.fillStyle="#aa0000";
-        ctx.fillRect(this.x+6,this.y+5,2,6);
-
-        // corpo
-        ctx.fillStyle="#ddd";
-        ctx.fillRect(this.x+3,this.y+8,8,12);
+const player={
+  x:40,y:80,w:14,h:20,vy:0,
+  reset(){this.y=80;this.vy=0;},
+  update(){
+    this.vy+=0.08;
+    this.y+=this.vy;
+    if(this.y+this.h>=H-10){
+      this.y=H-10-this.h;
+      gameOver();
     }
+  },
+  jump(){this.vy=-1.7;},
+  draw(){
+    ctx.fillStyle="#ff6a00";
+    ctx.fillRect(this.x-2,this.y,4,10);
+    ctx.fillRect(this.x+12,this.y,4,10);
+    ctx.fillStyle="#fff";
+    ctx.fillRect(this.x+2,this.y,10,8);
+    ctx.fillStyle="#000";
+    ctx.fillRect(this.x+4,this.y+3,2,2);
+    ctx.fillRect(this.x+8,this.y+3,2,2);
+    ctx.fillStyle="#aa0000";
+    ctx.fillRect(this.x+6,this.y+5,2,6);
+    ctx.fillStyle="#ddd";
+    ctx.fillRect(this.x+3,this.y+8,8,12);
+  }
 };
 
-// ================= BALÕES =================
-let balloonColor = localStorage.getItem("balloonColor") || "#ff0000";
-let balloons = [];
-
+// ================= BALLOONS (VINDO DA DIREITA) =================
+let balloons=[];
 function spawnBalloon(){
-    balloons.push({
-        x: W + 10,
-        y: Math.random()*120 + 40
-    });
+  balloons.push({x:W+10,y:40+Math.random()*120});
 }
-
 function updateBalloons(){
-    for(let i=balloons.length-1;i>=0;i--){
-        const b = balloons[i];
-        b.x -= 0.8;
-
-        if(
-            player.x < b.x + 6 &&
-            player.x + player.w > b.x &&
-            player.y < b.y + 8 &&
-            player.y + player.h > b.y
-        ){
-            balloons.splice(i,1);
-            score++;
-            coins++;
-            continue;
-        }
-
-        if(b.x < -10) balloons.splice(i,1);
+  for(let i=balloons.length-1;i>=0;i--){
+    const b=balloons[i];
+    b.x-=1.0;
+    if(
+      player.x<b.x+6&&player.x+player.w>b.x&&
+      player.y<b.y+8&&player.y+player.h>b.y
+    ){
+      balloons.splice(i,1);
+      score++; coins++;
+      initAudio(); tone(650,0.08);
+      continue;
     }
+    if(b.x<-10) balloons.splice(i,1);
+  }
 }
-
 function drawBalloons(){
-    balloons.forEach(b=>{
-        ctx.fillStyle=balloonColor;
-        ctx.fillRect(b.x,b.y,6,8);
-        ctx.fillStyle="#444";
-        ctx.fillRect(b.x+3,b.y+8,1,6);
-    });
+  balloons.forEach(b=>{
+    let c = balloonColor==="polly"
+      ? (frame%20<10?"#ff66cc":"#ffe600")
+      : balloonCol();
+    ctx.fillStyle=c;
+    ctx.fillRect(b.x,b.y,6,8);
+    ctx.fillStyle="#444";
+    ctx.fillRect(b.x+3,b.y+8,1,6);
+  });
 }
 
 // ================= HUD =================
 function drawHUD(){
-    ctx.fillStyle="rgba(0,0,0,.6)";
-    ctx.fillRect(0,0,W,14);
-    ctx.fillStyle="#fff";
-    ctx.fillText("🎈 "+score,6,10);
-    ctx.fillText("💰 "+coins,W-55,10);
+  ctx.fillStyle="rgba(0,0,0,.6)";
+  ctx.fillRect(0,0,W,14);
+  ctx.fillStyle="#fff";
+  ctx.fillText("🎈 "+score,6,10);
+  ctx.fillText("💰 "+coins,W-52,10);
 }
 
 // ================= GAME OVER =================
 function gameOver(){
-    state="gameover";
-    best=Math.max(best,score);
-    localStorage.setItem("best",best);
-    localStorage.setItem("coins",coins);
-    initAudio();
-    loseMusic();
+  state="gameover";
+  best=Math.max(best,score);
+  localStorage.setItem("best",best);
+  localStorage.setItem("coins",coins);
+  initAudio(); tone(200,0.4);
 }
 
-// ================= MENU =================
+// ================= UI =================
+function btn(x,y,w,h,t){
+  ctx.fillStyle="#fff"; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle="#000"; ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle="#000"; ctx.fillText(t,x+6,y+11);
+}
+
 function drawMenu(){
-    drawBackground();
-    ctx.fillStyle="rgba(0,0,0,.7)";
-    ctx.fillRect(20,50,W-40,140);
-
-    ctx.fillStyle="#ff0000";
-    ctx.fillText("🎪 VEM FLUTUAR 🎪",32,75);
-    ctx.fillStyle="#fff";
-    ctx.fillText("RECORDE: "+best,42,100);
-    ctx.fillText("MOEDAS: "+coins,42,115);
-
-    drawButton(40,140,"JOGAR");
-    drawButton(40,165,"LOJA");
+  drawBackground();
+  ctx.fillStyle="rgba(0,0,0,.75)";
+  ctx.fillRect(20,50,W-40,140);
+  ctx.fillStyle="#ff2b2b";
+  ctx.fillText("🎪 VEM FLUTUAR 🎪",32,75);
+  ctx.fillStyle="#fff";
+  ctx.fillText("RECORDE: "+best,42,100);
+  ctx.fillText("MOEDAS: "+coins,42,115);
+  btn(40,140,100,16,"JOGAR");
+  btn(40,165,100,16,"LOJA");
 }
 
-// ================= SHOP (BASE VISUAL) =================
 function drawShop(){
-    drawBackground();
-    ctx.fillStyle="rgba(0,0,0,.8)";
-    ctx.fillRect(10,20,W-20,200);
+  drawBackground();
+  ctx.fillStyle="rgba(0,0,0,.85)";
+  ctx.fillRect(8,16,W-16,208);
+  ctx.fillStyle="#ffd700";
+  ctx.fillText("🎠 LOJA DO CIRCO 🎠",26,32);
+  ctx.fillStyle="#fff";
+  ctx.fillText("COR DO BALÃO",18,60);
 
-    ctx.fillStyle="#ffd700";
-    ctx.fillText("🎠 LOJA DO CIRCO 🎠",28,40);
+  let y=72;
+  balloonShop.forEach(it=>{
+    ctx.fillStyle="#222";
+    ctx.fillRect(14,y-10,W-28,16);
     ctx.fillStyle="#fff";
-    ctx.fillText("EM BREVE MAIS ITENS",30,90);
-    drawButton(20,200,"VOLTAR");
+    ctx.fillText(it.name,18,y);
+    const owned=ownedColors.includes(it.id);
+    ctx.fillText(
+      owned?(balloonColor===it.id?"USANDO":"USAR"):it.price+" 💰",
+      W-66,y
+    );
+    ctx.fillStyle=it.special
+      ? (frame%20<10?"#ff66cc":"#ffe600")
+      : it.color;
+    ctx.fillRect(W-20,y-7,6,6);
+    y+=18;
+  });
+
+  ctx.fillStyle="#aaa";
+  ctx.fillText("SKINS: EM BREVE",18,190);
+  ctx.fillText("HABILIDADES: EM BREVE",18,202);
+  btn(30,214,100,16,"VOLTAR");
 }
 
-// ================= BUTTON =================
-function drawButton(x,y,text){
-    ctx.fillStyle="#fff";
-    ctx.fillRect(x,y,120,16);
-    ctx.strokeStyle="#000";
-    ctx.strokeRect(x,y,120,16);
-    ctx.fillStyle="#000";
-    ctx.fillText(text,x+6,y+11);
+function drawGameOver(){
+  drawBackground();
+  ctx.fillStyle="rgba(0,0,0,.78)";
+  ctx.fillRect(18,88,W-36,96);
+  ctx.fillStyle="#ff2b2b";
+  ctx.fillText("🎭 GAME OVER 🎭",34,118);
+  ctx.fillStyle="#fff";
+  ctx.fillText("BALÕES: "+score,42,140);
+  ctx.fillText("TOQUE P/ MENU",30,160);
 }
 
 // ================= INPUT =================
-function tap(x,y){
-    if(!canTap) return;
-    canTap=false;
-
-    if(state==="menu"){
-        if(y>140 && y<156) startGame();
-        else if(y>165 && y<181) state="shop";
-    }
-    else if(state==="shop"){
-        if(y>200) state="menu";
-    }
-    else if(state==="game"){
-        player.jump();
-    }
-    else if(state==="gameover"){
-        state="menu";
-    }
+function getPos(e){
+  const r=canvas.getBoundingClientRect();
+  return {
+    x:(e.clientX-r.left)*(W/r.width),
+    y:(e.clientY-r.top)*(H/r.height)
+  };
 }
 
-canvas.addEventListener("mousedown",e=>{
-    const r=canvas.getBoundingClientRect();
-    tap((e.clientX-r.left)/SCALE,(e.clientY-r.top)/SCALE);
-});
-canvas.addEventListener("mouseup",()=>canTap=true);
+function tap(x,y){
+  if(locked) return;
+  locked=true;
 
-canvas.addEventListener("touchstart",e=>{
-    const r=canvas.getBoundingClientRect();
-    tap((e.touches[0].clientX-r.left)/SCALE,(e.touches[0].clientY-r.top)/SCALE);
+  if(state==="menu"){
+    if(x>=40&&x<=140&&y>=140&&y<=156) startGame();
+    else if(x>=40&&x<=140&&y>=165&&y<=181) state="shop";
+  }
+  else if(state==="shop"){
+    let yy=72;
+    for(const it of balloonShop){
+      if(x>=14&&x<=W-14&&y>=yy-10&&y<=yy+6){
+        if(!ownedColors.includes(it.id)&&coins>=it.price){
+          coins-=it.price;
+          ownedColors.push(it.id);
+          localStorage.setItem("ownedColors",JSON.stringify(ownedColors));
+          localStorage.setItem("coins",coins);
+        }
+        if(ownedColors.includes(it.id)){
+          balloonColor=it.id;
+          localStorage.setItem("balloonColor",balloonColor);
+        }
+        break;
+      }
+      yy+=18;
+    }
+    if(x>=30&&x<=130&&y>=214&&y<=230) state="menu";
+  }
+  else if(state==="game") player.jump();
+  else if(state==="gameover") state="menu";
+}
+
+canvas.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  initAudio();
+  const p=getPos(e);
+  tap(p.x,p.y);
 });
-canvas.addEventListener("touchend",()=>canTap=true);
+["pointerup","pointerleave","pointercancel"].forEach(ev=>{
+  canvas.addEventListener(ev,()=>locked=false);
+});
 
 // ================= START =================
 function startGame(){
-    score=0;
-    balloons=[];
-    player.reset();
-    frame=0;
-    state="game";
+  state="game";
+  score=0;
+  balloons=[];
+  frame=0;
+  bgX=0;
+  signX=W+200;
+  player.reset();
 }
 
 // ================= LOOP =================
 function loop(){
-    ctx.clearRect(0,0,W,H);
+  ctx.clearRect(0,0,W,H);
 
-    if(state==="menu") drawMenu();
-    else if(state==="shop") drawShop();
-    else if(state==="game"){
-        drawBackground();
-        player.update();
-        updateBalloons();
-        if(frame%90===0) spawnBalloon();
-        drawBalloons();
-        player.draw();
-        drawHUD();
-    }
-    else if(state==="gameover"){
-        drawBackground();
-        ctx.fillStyle="rgba(0,0,0,.75)";
-        ctx.fillRect(20,90,W-40,90);
-        ctx.fillStyle="#ff0000";
-        ctx.fillText("🎭 GAME OVER 🎭",34,120);
-        ctx.fillStyle="#fff";
-        ctx.fillText("BALÕES: "+score,42,140);
-        ctx.fillText("TOQUE P/ MENU",30,165);
-    }
+  if(state==="menu") drawMenu();
+  else if(state==="shop") drawShop();
+  else if(state==="game"){
+    drawBackground();
+    player.update();
+    updateBalloons();
+    if(frame%90===0) spawnBalloon();
+    drawBalloons();
+    player.draw();
+    drawHUD();
+  }
+  else if(state==="gameover") drawGameOver();
 
-    frame++;
-    requestAnimationFrame(loop);
+  frame++;
+  requestAnimationFrame(loop);
 }
 loop();
 </script>
