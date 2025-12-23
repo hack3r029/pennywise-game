@@ -8,7 +8,7 @@
 <style>
 body{
     margin:0;
-    background:#6db7ff;
+    background:#0b0018;
     display:flex;
     justify-content:center;
     align-items:center;
@@ -17,8 +17,8 @@ body{
 }
 canvas{
     image-rendering:pixelated;
-    border:4px solid #222;
-    background:#9dd9ff;
+    border:6px solid #000;
+    background:#000;
 }
 </style>
 </head>
@@ -29,8 +29,7 @@ canvas{
 <script>
 // ================= CONFIG =================
 const SCALE = 3;
-const W = 160;
-const H = 240;
+const W = 160, H = 240;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -39,38 +38,82 @@ canvas.height = H * SCALE;
 ctx.scale(SCALE, SCALE);
 ctx.font = "8px monospace";
 
-// ================= ESTADO =================
+// ================= STATE =================
 let state = "menu";
 let score = 0;
 let coins = Number(localStorage.getItem("coins")) || 0;
 let best = Number(localStorage.getItem("best")) || 0;
-
-let canTap = true;
-let audioCtx = null;
 let frame = 0;
+let canTap = true;
 
-// ================= AUDIO =================
+// ================= AUDIO (SÓ GAME OVER) =================
+let audioCtx = null;
 function initAudio(){
-    if(!audioCtx){
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-}
-function beep(freq, time){
-    if(!audioCtx) return;
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = "square";
-    o.frequency.value = freq;
-    g.gain.value = 0.04;
-    o.connect(g);
-    g.connect(audioCtx.destination);
-    o.start();
-    o.stop(audioCtx.currentTime + time);
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 }
 function loseMusic(){
-    beep(220,0.25);
-    setTimeout(()=>beep(180,0.3),300);
-    setTimeout(()=>beep(140,0.4),650);
+    if(!audioCtx) return;
+    const seq = [220,180,140];
+    seq.forEach((f,i)=>{
+        setTimeout(()=>{
+            const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+            o.type="square";o.frequency.value=f;
+            g.gain.value=0.05;
+            o.connect(g);g.connect(audioCtx.destination);
+            o.start();o.stop(audioCtx.currentTime+0.3);
+        },i*300);
+    });
+}
+
+// ================= CENÁRIO DERRY (SCROLL) =================
+let bgX = 0;
+let signX = 260;
+
+function drawBackground(){
+    // céu
+    ctx.fillStyle = "#12001f";
+    ctx.fillRect(0,0,W,H);
+
+    // lua
+    ctx.fillStyle="#ddd";
+    ctx.fillRect(120,20,12,12);
+
+    // prédios (parallax)
+    for(let layer=0; layer<3; layer++){
+        const speed = 0.2 + layer*0.2;
+        const color = ["#1a0033","#24004a","#300066"][layer];
+        for(let i=0;i<20;i++){
+            const x = (i*16 - (bgX*speed)%16);
+            const h = 40 + (i*13)%30 + layer*10;
+            ctx.fillStyle=color;
+            ctx.fillRect(x,H-h-10,16,h);
+        }
+    }
+
+    // circo
+    ctx.fillStyle="#6b0000";
+    ctx.fillRect(30-bgX*0.6,H-60,100,30);
+    ctx.fillStyle="#ff0000";
+    for(let i=0;i<7;i++){
+        ctx.fillRect(30-bgX*0.6+i*14,H-60,7,30);
+    }
+
+    // placa WELCOME TO DERRY (passando)
+    ctx.fillStyle="#111";
+    ctx.fillRect(signX, H-90, 110, 14);
+    ctx.fillStyle="#fff";
+    ctx.fillText("WELCOME TO DERRY", signX+6, H-80);
+
+    // chão
+    ctx.fillStyle="#050010";
+    ctx.fillRect(0,H-10,W,10);
+
+    bgX += 0.4;
+    signX -= 0.4;
+
+    if(signX < -140){
+        signX = W + Math.random()*200;
+    }
 }
 
 // ================= PLAYER =================
@@ -87,24 +130,23 @@ const player = {
     },
 
     update(){
-        this.vy += 0.08;
+        this.vy += 0.07;
         this.y += this.vy;
-
-        if(this.y + this.h >= H){
-            this.y = H - this.h;
+        if(this.y + this.h >= H-10){
+            this.y = H-10-this.h;
             gameOver();
         }
     },
 
     jump(){
-        this.vy = -1.8;
+        this.vy = -1.6;
     },
 
     draw(){
-        // cabelo (ruivo)
+        // cabelo
         ctx.fillStyle="#ff6a00";
-        ctx.fillRect(this.x-1,this.y,4,10);
-        ctx.fillRect(this.x+11,this.y,4,10);
+        ctx.fillRect(this.x-2,this.y,4,10);
+        ctx.fillRect(this.x+12,this.y,4,10);
 
         // cabeça
         ctx.fillStyle="#fff";
@@ -117,11 +159,11 @@ const player = {
 
         // marcas vermelhas
         ctx.fillStyle="#aa0000";
-        ctx.fillRect(this.x+6,this.y+5,2,5);
+        ctx.fillRect(this.x+6,this.y+5,2,6);
 
         // corpo
         ctx.fillStyle="#ddd";
-        ctx.fillRect(this.x+3,this.y+8,8,10);
+        ctx.fillRect(this.x+3,this.y+8,8,12);
     }
 };
 
@@ -132,14 +174,14 @@ let balloons = [];
 function spawnBalloon(){
     balloons.push({
         x: W + 10,
-        y: Math.random() * 160 + 20
+        y: Math.random()*120 + 40
     });
 }
 
 function updateBalloons(){
-    for(let i = balloons.length-1; i >= 0; i--){
+    for(let i=balloons.length-1;i>=0;i--){
         const b = balloons[i];
-        b.x -= 0.5;
+        b.x -= 0.8;
 
         if(
             player.x < b.x + 6 &&
@@ -150,28 +192,25 @@ function updateBalloons(){
             balloons.splice(i,1);
             score++;
             coins++;
-            beep(800,0.08);
             continue;
         }
 
-        if(b.x < -10){
-            balloons.splice(i,1);
-        }
+        if(b.x < -10) balloons.splice(i,1);
     }
 }
 
 function drawBalloons(){
     balloons.forEach(b=>{
-        ctx.fillStyle = balloonColor;
+        ctx.fillStyle=balloonColor;
         ctx.fillRect(b.x,b.y,6,8);
-        ctx.fillStyle="#555";
+        ctx.fillStyle="#444";
         ctx.fillRect(b.x+3,b.y+8,1,6);
     });
 }
 
 // ================= HUD =================
 function drawHUD(){
-    ctx.fillStyle="#000";
+    ctx.fillStyle="rgba(0,0,0,.6)";
     ctx.fillRect(0,0,W,14);
     ctx.fillStyle="#fff";
     ctx.fillText("🎈 "+score,6,10);
@@ -181,83 +220,63 @@ function drawHUD(){
 // ================= GAME OVER =================
 function gameOver(){
     state="gameover";
-    best = Math.max(best,score);
+    best=Math.max(best,score);
     localStorage.setItem("best",best);
     localStorage.setItem("coins",coins);
+    initAudio();
     loseMusic();
 }
 
 // ================= MENU =================
 function drawMenu(){
-    ctx.fillStyle="#9dd9ff";
-    ctx.fillRect(0,0,W,H);
+    drawBackground();
+    ctx.fillStyle="rgba(0,0,0,.7)";
+    ctx.fillRect(20,50,W-40,140);
 
-    ctx.fillStyle="#000";
-    ctx.fillText("VEM FLUTUAR 🎈",W/2-36,60);
-    ctx.fillText("RECORDE: "+best,W/2-36,75);
-    ctx.fillText("MOEDAS: "+coins,W/2-36,90);
+    ctx.fillStyle="#ff0000";
+    ctx.fillText("🎪 VEM FLUTUAR 🎪",32,75);
+    ctx.fillStyle="#fff";
+    ctx.fillText("RECORDE: "+best,42,100);
+    ctx.fillText("MOEDAS: "+coins,42,115);
 
-    drawButton(W/2-50,120,"JOGAR");
-    drawButton(W/2-50,150,"LOJA");
+    drawButton(40,140,"JOGAR");
+    drawButton(40,165,"LOJA");
 }
 
-// ================= LOJA =================
-const shopItems = [
-    {color:"#ff0000",price:0,name:"VERMELHO"},
-    {color:"#0000ff",price:10,name:"AZUL"},
-    {color:"#00aa00",price:20,name:"VERDE"},
-    {color:"#8000ff",price:30,name:"ROXO"},
-    {color:"#ffd700",price:50,name:"DOURADO"},
-    {color:"#ff69b4",price:80,name:"ROSA"}
-];
-
+// ================= SHOP (BASE VISUAL) =================
 function drawShop(){
-    ctx.fillStyle="#b0e0ff";
-    ctx.fillRect(0,0,W,H);
+    drawBackground();
+    ctx.fillStyle="rgba(0,0,0,.8)";
+    ctx.fillRect(10,20,W-20,200);
 
-    ctx.fillStyle="#000";
-    ctx.fillText("LOJA DE BALÕES",W/2-40,30);
-    ctx.fillText("MOEDAS: "+coins,W/2-32,45);
-
-    shopItems.forEach((item,i)=>{
-        drawButton(W/2-60,65+i*22,`${item.name} (${item.price})`);
-    });
-
-    drawButton(W/2-60,65+shopItems.length*22+12,"VOLTAR");
+    ctx.fillStyle="#ffd700";
+    ctx.fillText("🎠 LOJA DO CIRCO 🎠",28,40);
+    ctx.fillStyle="#fff";
+    ctx.fillText("EM BREVE MAIS ITENS",30,90);
+    drawButton(20,200,"VOLTAR");
 }
 
 // ================= BUTTON =================
 function drawButton(x,y,text){
     ctx.fillStyle="#fff";
-    ctx.fillRect(x,y,120,18);
+    ctx.fillRect(x,y,120,16);
     ctx.strokeStyle="#000";
-    ctx.strokeRect(x,y,120,18);
+    ctx.strokeRect(x,y,120,16);
     ctx.fillStyle="#000";
-    ctx.fillText(text,x+6,y+12);
+    ctx.fillText(text,x+6,y+11);
 }
 
 // ================= INPUT =================
 function tap(x,y){
     if(!canTap) return;
     canTap=false;
-    initAudio();
 
     if(state==="menu"){
-        if(y>120 && y<138) startGame();
-        else if(y>150 && y<168) state="shop";
+        if(y>140 && y<156) startGame();
+        else if(y>165 && y<181) state="shop";
     }
     else if(state==="shop"){
-        shopItems.forEach((item,i)=>{
-            const by=65+i*22;
-            if(y>by && y<by+18 && coins>=item.price){
-                coins-=item.price;
-                balloonColor=item.color;
-                localStorage.setItem("coins",coins);
-                localStorage.setItem("balloonColor",balloonColor);
-                beep(500,0.1);
-            }
-        });
-        if(y>65+shopItems.length*22+12) state="menu";
+        if(y>200) state="menu";
     }
     else if(state==="game"){
         player.jump();
@@ -281,11 +300,11 @@ canvas.addEventListener("touchend",()=>canTap=true);
 
 // ================= START =================
 function startGame(){
-    score = 0;
-    balloons = [];
+    score=0;
+    balloons=[];
     player.reset();
-    frame = 0;
-    state = "game";
+    frame=0;
+    state="game";
 }
 
 // ================= LOOP =================
@@ -295,20 +314,23 @@ function loop(){
     if(state==="menu") drawMenu();
     else if(state==="shop") drawShop();
     else if(state==="game"){
+        drawBackground();
         player.update();
         updateBalloons();
-        if(frame%120===0) spawnBalloon();
+        if(frame%90===0) spawnBalloon();
         drawBalloons();
         player.draw();
         drawHUD();
     }
     else if(state==="gameover"){
-        ctx.fillStyle="#000";
-        ctx.fillRect(0,0,W,H);
+        drawBackground();
+        ctx.fillStyle="rgba(0,0,0,.75)";
+        ctx.fillRect(20,90,W-40,90);
+        ctx.fillStyle="#ff0000";
+        ctx.fillText("🎭 GAME OVER 🎭",34,120);
         ctx.fillStyle="#fff";
-        ctx.fillText("GAME OVER",W/2-30,95);
-        ctx.fillText("BALÕES: "+score,W/2-32,115);
-        ctx.fillText("TOQUE P/ MENU",W/2-44,145);
+        ctx.fillText("BALÕES: "+score,42,140);
+        ctx.fillText("TOQUE P/ MENU",30,165);
     }
 
     frame++;
