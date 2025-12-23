@@ -10,7 +10,6 @@
   #game-wrapper { position: relative; box-shadow: 0 0 50px rgba(100, 0, 0, 0.6); border: 4px solid #1a1a1a; overflow: hidden; background: #000; width: 240px; height: 360px; }
   canvas { display: block; background: #000; image-rendering: pixelated; width: 100%; height: 100%; }
   .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.15) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; }
-  #insta-link { position: absolute; display: none; color: #f00; font-size: 8px; text-decoration: none; z-index: 100; text-align: center; width: 100%; bottom: 15px; letter-spacing: 1px; }
 </style>
 </head>
 <body>
@@ -18,21 +17,18 @@
 <div id="game-wrapper">
   <canvas id="game"></canvas>
   <div class="overlay"></div>
-  <a id="insta-link" href="https://instagram.com/carluzsnt" target="_blank">BY @CARLUZSNT</a>
 </div>
 
 <script>
+// ================= CONFIGURAÇÕES E TRADUÇÕES =================
 const LANGS = {
-  pt: { play: "JOGAR", shop: "LOJA", settings: "CONFIGS", back: "VOLTAR", close: "FECHAR", buy: "COMPRAR", use: "USAR", soon: "EM BREVE", retry: "RECOMECAR", menu: "MENU", score: "RECORD", balloons: "BALOES", skins: "SKINS", skills: "PODERES", over: "FIM DE JOGO", music: "MUSICA", sfx: "EFEITOS", items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON" }, descs: { red: "O CLASSICO.", blue: "CEU PROFUNDO.", green: "BRILHA MUITO.", gold: "PURO LUXO.", cyan: "LUZ VIBRANTE." } },
-  es: { play: "JUGAR", shop: "TIENDA", settings: "CONFIGS", back: "VOLVER", close: "CERRAR", buy: "COMPRAR", use: "USAR", soon: "MUY PRONTO", retry: "REINTENTAR", menu: "MENU", score: "RECORD", balloons: "GLOBOS", skins: "PIELES", skills: "PODERES", over: "FIN JUEGO", music: "MUSICA", sfx: "EFECTOS", items: { red: "SANGRE", blue: "NOCHE", green: "TOXICO", gold: "ORO", cyan: "NEON" }, descs: { red: "EL CLASICO.", blue: "CIELO OSCURO.", green: "BRILLA MUCHO.", gold: "PURO ORO.", cyan: "LUZ VIVA." } },
-  en: { play: "PLAY", shop: "SHOP", settings: "SETTINGS", back: "BACK", close: "CLOSE", buy: "BUY", use: "USE", soon: "COMING SOON", retry: "RETRY", menu: "MENU", score: "BEST", balloons: "BALLOONS", skins: "SKINS", skills: "SKILLS", over: "GAME OVER", music: "MUSIC", sfx: "SFX", items: { red: "BLOOD", blue: "NIGHT", green: "TOXIC", gold: "GOLD", cyan: "NEON" }, descs: { red: "THE CLASSIC.", blue: "DEEP SKY.", green: "GLOWS DARK.", gold: "PURE WEALTH.", cyan: "VIBRANT LIGHT." } }
+  pt: { play: "JOGAR", shop: "LOJA", settings: "CONFIGS", back: "VOLTAR", close: "FECHAR", buy: "COMPRAR", use: "USAR", using: "USANDO", score: "RECORD", balloons: "BALOES", skins: "SKINS", skills: "PODERES", over: "FIM DE JOGO", retry: "RECOMECAR", menu: "MENU", items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON", classic: "PALHACO", neon: "CYBER", ghost: "FANTASMA", pump: "ABOBORA", magnet: "IMA", shield: "ESCUDO", multi: "X2 PONTOS" }, descs: { red: "O CLASSICO.", blue: "CEU PROFUNDO.", green: "BRILHA MUITO.", gold: "PURO LUXO.", cyan: "LUZ VIBRANTE.", classic: "ASSUSTADOR.", neon: "BRILHO ROSA.", ghost: "ALMA PENADA.", pump: "HALLOWEEN.", magnet: "SUGA OS BALOES.", shield: "MAIS 1 VIDA.", multi: "BALAO VALE x2." } }
 };
 
-let currentLang = localStorage.getItem("lang") || "pt";
+let currentLang = "pt";
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: false });
 const GAME_W = 240; const GAME_H = 360;
-const instaBtn = document.getElementById("insta-link");
 
 function resize() {
   const scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
@@ -43,180 +39,192 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
-let volMusic = parseFloat(localStorage.getItem("volMusic")) ?? 0.4;
-let volSfx = parseFloat(localStorage.getItem("volSfx")) ?? 0.6;
-
+// ================= DATA & SAVES =================
+let volMusic = 0.4; let volSfx = 0.6;
 const DB = {
-  balloons: [{id:"red", price:0, color:"#d00"}, {id:"blue", price:50, color:"#2ad"}, {id:"green", price:100, color:"#0f0"}, {id:"gold", price:300, color:"#ffd700"}, {id:"cyan", price:500, color:"#0ffff"}]
+  balloons: [{id:"red", price:0, color:"#d00"}, {id:"blue", price:50, color:"#2ad"}, {id:"green", price:100, color:"#0f0"}, {id:"gold", price:300, color:"#ffd700"}, {id:"cyan", price:500, color:"#0ffff"}],
+  skins: [{id:"classic", price:0}, {id:"neon", price:200}, {id:"ghost", price:450}, {id:"pump", price:600}],
+  skills: [{id:"magnet", price:500}, {id:"shield", price:800}, {id:"multi", price:1000}]
 };
-
 let SAVES = {
   coins: parseInt(localStorage.getItem("coins")) || 0,
   best: parseInt(localStorage.getItem("best")) || 0,
   balloons: JSON.parse(localStorage.getItem("myBalloons")) || ["red"],
-  equipped: { balloon: localStorage.getItem("eqBalloon") || "red", skin: "classic" }
+  skins: JSON.parse(localStorage.getItem("mySkins")) || ["classic"],
+  skills: JSON.parse(localStorage.getItem("mySkills")) || [],
+  equipped: { balloon: localStorage.getItem("eqBalloon") || "red", skin: localStorage.getItem("eqSkin") || "classic", skill: localStorage.getItem("eqSkill") || null }
 };
 
 function saveData() {
   localStorage.setItem("coins", SAVES.coins); localStorage.setItem("best", SAVES.best);
-  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons)); localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
-  localStorage.setItem("lang", currentLang); localStorage.setItem("volMusic", volMusic); localStorage.setItem("volSfx", volSfx);
+  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons)); localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
+  localStorage.setItem("mySkills", JSON.stringify(SAVES.skills)); localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
+  localStorage.setItem("eqSkin", SAVES.equipped.skin); localStorage.setItem("eqSkill", SAVES.equipped.skill || "");
 }
 
-// ================= SISTEMA DE ÁUDIO REFEITO =================
+// ================= AUDIO =================
 let actx = null, musicStarted = false;
-
-function initAudio() {
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
-  if (actx.state === 'suspended') actx.resume();
+function startMusic() {
+  if (musicStarted) return; musicStarted = true;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const loop = () => { setTimeout(loop, 4000); }; loop();
 }
-
-function playTerrorMusic() {
-  if (!actx || musicStarted) return;
-  musicStarted = true;
-  const loop = () => {
-    if(!actx) return;
-    const now = actx.currentTime;
-    const osc = actx.createOscillator();
-    const g = actx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(55, now);
-    osc.frequency.exponentialRampToValueAtTime(45, now + 4);
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(0.1 * volMusic, now + 1);
-    g.gain.linearRampToValueAtTime(0, now + 4);
-    osc.connect(g); g.connect(actx.destination);
-    osc.start(now); osc.stop(now + 4);
-    setTimeout(loop, 4000);
-  };
-  loop();
-}
-
 function sfx(type) {
-  if (!actx || actx.state === 'suspended') return;
-  const osc = actx.createOscillator();
-  const g = actx.createGain();
-  osc.connect(g); g.connect(actx.destination);
-  g.gain.setValueAtTime(volSfx * 0.2, actx.currentTime);
-  if (type === "jump") {
-    osc.frequency.setValueAtTime(150, actx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(400, actx.currentTime + 0.1);
-    osc.start(); osc.stop(actx.currentTime + 0.1);
-  } else if (type === "coin") {
-    osc.frequency.setValueAtTime(880, actx.currentTime);
-    osc.start(); osc.stop(actx.currentTime + 0.08);
-  } else if (type === "die") {
-    osc.frequency.setValueAtTime(100, actx.currentTime);
-    osc.frequency.linearRampToValueAtTime(20, actx.currentTime + 0.5);
-    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.5);
-    osc.start(); osc.stop(actx.currentTime + 0.5);
-  }
+  if (!actx) return;
+  const osc = actx.createOscillator(); const g = actx.createGain();
+  osc.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(0.05, actx.currentTime);
+  if (type === "jump") { osc.frequency.setValueAtTime(200, actx.currentTime); osc.frequency.exponentialRampToValueAtTime(400, actx.currentTime+0.1); osc.start(); osc.stop(actx.currentTime+0.1); }
+  else if (type === "coin") { osc.frequency.setValueAtTime(800, actx.currentTime); osc.start(); osc.stop(actx.currentTime+0.1); }
+  else if (type === "die") { osc.frequency.setValueAtTime(150, actx.currentTime); osc.start(); osc.stop(actx.currentTime+0.3); }
 }
 
-// ================= JOGO =================
-let state = "MENU", frames = 0, score = 0, speed = 1.8, shopTab = "balloons", previewItem = null, gameStarted = false;
-let entities = [];
-const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.16, jf: -3.5, reset() { this.y = 150; this.vy = 0; score = 0; entities = []; gameStarted = false; } };
-
+// ================= RENDERING =================
+let cityX1 = 0, cityX2 = 0;
 function drawDerryCity(speedMult) {
+  cityX1 -= speedMult * 0.3; cityX2 -= speedMult * 0.8;
   ctx.fillStyle = "#05000a"; ctx.fillRect(0, 0, GAME_W, GAME_H);
-  ctx.fillStyle = "#111"; ctx.fillRect(0, 180, GAME_W, 180);
+  ctx.fillStyle = "#0d0616";
+  for(let i=0; i<6; i++) { let x = (cityX1 + i*80) % (80 * 6); if (x < 0) x += (80 * 6); ctx.fillRect(x - 80, 180, 50, 150); }
+  for(let i=0; i<5; i++) { let x = (cityX2 + i*100) % (100 * 5); if (x < 0) x += (100 * 5); ctx.fillStyle = "#150a1d"; ctx.fillRect(x - 100, 220, 70, 140); }
   ctx.fillStyle = "#000"; ctx.fillRect(0, 320, GAME_W, 40);
 }
 
-function updateGame() {
-  if(!gameStarted) return;
-  player.vy += player.g; player.y += player.vy;
-  
-  if (player.y > 300 || player.y < -40) {
-    sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); return;
-  }
-
-  for (let i = 0; i < entities.length; i++) {
-    let e = entities[i]; e.x -= speed;
-    if (player.x < e.x + e.w && player.x + 14 > e.x && player.y < e.y + e.h && player.y + 22 > e.y) {
-      if (e.type === "balloon") {
-        score++; SAVES.coins++; sfx("coin");
-        entities.splice(i, 1); i--;
-      } else {
-        sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); return;
-      }
-    }
-  }
-  entities = entities.filter(e => e.x > -50);
-  if (frames % 100 === 0) entities.push({x:GAME_W+20, y:50+Math.random()*200, type:"balloon", w:12, h:15, color:DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color});
-  if (frames % 160 === 0) entities.push({x:GAME_W+20, y:Math.random()*280, type:"saw", w:18, h:18});
+function drawSkin(x, y, id, sc = 1) {
+  let cB = "#ccc", cH = "#fff", cD = "#d00";
+  if(id === "neon") { cB = "#f0f"; cH = "#f0f"; cD = "#0f0"; }
+  else if(id === "ghost") { cB = "#eef"; cH = "#fff"; cD = "#0ff"; }
+  else if(id === "pump") { cB = "#d50"; cH = "#f80"; cD = "#000"; }
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  // Cabelo
+  ctx.fillStyle = cD; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
+  // Corpo e Cabeça
+  ctx.fillStyle = cB; ctx.fillRect(2, 10, 10, 12); 
+  ctx.fillStyle = cH; ctx.fillRect(1, 0, 12, 10);
+  ctx.fillStyle = (id === "pump") ? "#000" : "#222"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
+  ctx.restore();
 }
 
+function drawBallon(x, y, color, sc=1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, 14); ctx.lineTo(6, 25); ctx.stroke();
+  ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(6, 7, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawSkillIcon(x, y, id) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(2, 2);
+    if(id === "magnet") { ctx.fillStyle="red"; ctx.fillRect(0,0,10,5); ctx.fillStyle="silver"; ctx.fillRect(0,5,3,5); ctx.fillRect(7,5,3,5); }
+    else if(id === "shield") { ctx.fillStyle="#0ff"; ctx.beginPath(); ctx.arc(5,5,6,0,Math.PI*2); ctx.fill(); }
+    else if(id === "multi") { ctx.fillStyle="#fd0"; ctx.font="bold 8px Arial"; ctx.fillText("X2", 0, 8); }
+    ctx.restore();
+}
+
+// ================= GAME LOGIC =================
+let state = "MENU", frames = 0, score = 0, speed = 1.8, shopTab = "balloons", previewItem = null, gameStarted = false;
+let entities = []; let fTxt = { x:0, y:0, life:0, t:"" };
+
+const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.16, jf: -3.5, aura: 0, 
+  reset() { this.y = 150; this.vy = 0; this.hasShield = (SAVES.equipped.skill === "shield"); this.aura = 0; gameStarted = false; fTxt.life=0; entities=[]; score=0; }, 
+  update() { if(gameStarted) { this.vy += this.g; this.y += this.vy; if(this.aura > 0) this.aura--; } }, 
+  jump() { this.vy = this.jf; sfx("jump"); } 
+};
+
+function updateGame() {
+  player.update();
+  if (player.y > GAME_H - 24 || player.y < -20) { sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); return; }
+  if(gameStarted) {
+    for (let i = entities.length - 1; i >= 0; i--) {
+        let e = entities[i]; 
+        if(SAVES.equipped.skill === "magnet" && e.type === "balloon") {
+            let dx = player.x - e.x, dy = player.y - e.y;
+            if(Math.sqrt(dx*dx+dy*dy) < 80) { e.x += dx*0.1; e.y += dy*0.1; }
+        }
+        e.x -= speed;
+        if (player.x < e.x + 15 && player.x + 14 > e.x && player.y < e.y + 15 && player.y + 20 > e.y) {
+            if (e.type === "balloon") { 
+                let val = (SAVES.equipped.skill === "multi") ? 2 : 1;
+                score += val; SAVES.coins += val; sfx("coin"); 
+                if(val > 1) fTxt = {x:e.x, y:e.y, life:60, t:"+2"};
+                entities.splice(i, 1); 
+            } else if (e.type === "saw") { 
+              if (player.hasShield) { player.hasShield = false; player.aura = 300; fTxt = {x:player.x, y:player.y, life:300, t:"+1"}; sfx("coin"); entities.splice(i, 1); }
+              else if (player.aura <= 0) { sfx("die"); state = "GAMEOVER"; if(score > SAVES.best) SAVES.best = score; saveData(); }
+            }
+        }
+        if (e.x < -40) entities.splice(i, 1);
+    }
+    if (frames % 90 === 0) entities.push({x:GAME_W+20, y:50+Math.random()*200, type:"balloon", color:DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color});
+    if (frames % 140 === 0) entities.push({x:GAME_W+20, y:Math.random()*280, type:"saw"});
+  }
+}
+
+// ================= INPUT =================
 function handleInput(e) {
   if (e.cancelable) e.preventDefault();
-  initAudio(); playTerrorMusic();
-  const r = canvas.getBoundingClientRect(); const t = (e.touches && e.touches[0]) || e;
-  const gx = (t.clientX - r.left) * (GAME_W / r.width); const gy = (t.clientY - r.top) * (GAME_H / r.height);
-
+  const r = canvas.getBoundingClientRect(); const touch = (e.touches && e.touches[0]) || e;
+  const gx = (touch.clientX - r.left) * (GAME_W / r.width); const gy = (touch.clientY - r.top) * (GAME_H / r.height);
+  if (!musicStarted) startMusic();
   if (state === "MENU") {
     if (gy > 160 && gy < 190) { player.reset(); state="GAME"; }
     else if (gy > 200 && gy < 230) state="SHOP";
-    else if (gy > 240 && gy < 270) state="SETTINGS";
-  } else if (state === "SETTINGS") {
-    if (gy > 115 && gy < 145) { if(gx < 80) currentLang="pt"; else if(gx < 160) currentLang="es"; else currentLang="en"; }
-    if (gy > 170 && gy < 195) { if(gx < 100) volMusic = Math.max(0, volMusic-0.1); else if(gx > 140) volMusic = Math.min(1, volMusic+0.1); }
-    if (gy > 215 && gy < 240) { if(gx < 100) volSfx = Math.max(0, volSfx-0.1); else if(gx > 140) volSfx = Math.min(1, volSfx+0.1); }
-    if (gy > 300) { state="MENU"; saveData(); }
+  } else if (state === "GAMEOVER") {
+    if (gy > 200 && gy < 230) { player.reset(); state="GAME"; }
+    else if (gy > 240 && gy < 270) state="MENU";
   } else if (state === "SHOP") {
     if (previewItem) {
       if (gy > 230 && gy < 265) {
-        if (SAVES.balloons.includes(previewItem.id)) { SAVES.equipped.balloon = previewItem.id; previewItem = null; }
-        else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; SAVES.balloons.push(previewItem.id); }
+        if (SAVES[shopTab].includes(previewItem.id)) {
+            if (shopTab === "skills") SAVES.equipped.skill = (SAVES.equipped.skill === previewItem.id) ? null : previewItem.id;
+            else SAVES.equipped[shopTab.slice(0,-1)] = previewItem.id;
+            previewItem = null;
+        } else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; SAVES[shopTab].push(previewItem.id); }
         saveData(); sfx("coin");
       } else if (gy > 280) previewItem = null;
-    } else {
-      if (gy > 320) state="MENU";
-      else if (gy > 30 && gy < 55) shopTab = ["balloons", "skins", "skills"][Math.floor(gx/80)];
-      else if (shopTab==="balloons") DB.balloons.forEach((it, i) => { if(gy > 70+i*42 && gy < 105+i*42) previewItem = it; });
-    }
-  } else if (state === "GAME") { gameStarted = true; player.vy = player.jf; sfx("jump"); }
-  else if (state === "GAMEOVER") {
-    if (gy > 200 && gy < 230) { player.reset(); state="GAME"; }
-    else if (gy > 240 && gy < 270) state="MENU";
-  }
+    } else { if (gy > 320) state="MENU"; else if (gy > 30 && gy < 55) shopTab = ["balloons", "skins", "skills"][Math.floor(gx/80)]; else DB[shopTab].forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) previewItem = item; }); }
+  } else if (state === "GAME") { gameStarted = true; player.jump(); }
 }
-
-window.addEventListener("mousedown", handleInput);
 window.addEventListener("touchstart", handleInput, {passive:false});
+window.addEventListener("mousedown", handleInput);
 
+// ================= LOOP =================
 function loop() {
   frames++;
-  drawDerryCity(0.4);
-  if (state === "GAME") {
-    updateGame();
+  if(state==="GAME") { 
+    updateGame(); drawDerryCity(1.8);
     entities.forEach(e => {
-      if (e.type === "balloon") { ctx.fillStyle = e.color; ctx.beginPath(); ctx.ellipse(e.x+6, e.y+7, 6, 8, 0, 0, 7); ctx.fill(); }
-      else { ctx.fillStyle = "#444"; ctx.fillRect(e.x, e.y, 18, 18); }
+        if(e.type === "balloon") drawBallon(e.x, e.y, e.color);
+        else { ctx.fillStyle="#555"; ctx.fillRect(e.x, e.y, 20, 20); }
     });
-    ctx.fillStyle = DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color;
-    ctx.beginPath(); ctx.ellipse(player.x+5, player.y-10, 6, 8, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = "#fff"; ctx.fillRect(player.x, player.y, 14, 22);
-    ctx.font = "8px 'Press Start 2P'"; ctx.fillText(score, 10, 20);
-  } else if (state === "MENU") {
-    ctx.textAlign="center"; ctx.fillStyle="#f00"; ctx.fillText("VAMOS FLUTUAR", 120, 80);
-    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.fillStyle="#fff"; ctx.fillText(t, 120, y+20); };
-    btn(LANGS[currentLang].play, 160); btn(LANGS[currentLang].shop, 200); btn(LANGS[currentLang].settings, 240);
-  } else if (state === "SETTINGS") {
-    ctx.textAlign="center"; ctx.fillStyle="#fff"; ctx.fillText(LANGS[currentLang].settings, 120, 40);
-    ctx.fillText("- " + LANGS[currentLang].music + " +", 120, 185); ctx.fillText("- " + LANGS[currentLang].sfx + " +", 120, 230);
-    ctx.fillText(LANGS[currentLang].back, 120, 330);
-  } else if (state === "SHOP") {
-    ctx.textAlign="center"; ctx.fillText(shopTab, 120, 20);
-    if(shopTab==="balloons") {
-      DB.balloons.forEach((it, i) => { ctx.fillStyle="#111"; ctx.fillRect(10, 70+i*42, 220, 35); ctx.fillStyle="#fff"; ctx.fillText(it.id, 60, 92+i*42); });
-    } else { ctx.fillText(LANGS[currentLang].soon, 120, 180); }
-    ctx.fillText(LANGS[currentLang].back, 120, 345);
-    if(previewItem) { ctx.fillStyle="#000"; ctx.fillRect(20,40,200,280); ctx.fillStyle="#fff"; ctx.fillText(previewItem.id, 120, 80); ctx.fillText(LANGS[currentLang].use, 120, 250); }
-  } else if (state === "GAMEOVER") {
-    ctx.textAlign="center"; ctx.fillStyle="red"; ctx.fillText(LANGS[currentLang].over, 120, 100);
-    ctx.fillStyle="#111"; ctx.fillRect(45, 200, 150, 30); ctx.fillStyle="#fff"; ctx.fillText(LANGS[currentLang].retry, 120, 220);
-    ctx.fillStyle="#111"; ctx.fillRect(45, 240, 150, 30); ctx.fillStyle="#fff"; ctx.fillText(LANGS[currentLang].menu, 120, 260);
+    if(player.aura > 0) { ctx.strokeStyle="yellow"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(player.x+7, player.y+10, 20, 0, Math.PI*2); ctx.stroke(); }
+    drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
+    drawSkin(player.x, player.y, SAVES.equipped.skin);
+    ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 10, 20);
+    ctx.textAlign="right"; ctx.fillText("$"+SAVES.coins, GAME_W-10, 20);
+    if(fTxt.life > 0) { ctx.textAlign="center"; ctx.fillText(fTxt.t, fTxt.x, fTxt.y); fTxt.y--; fTxt.life--; }
+  } else if(state==="MENU") {
+    drawDerryCity(0.4); ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
+    ctx.fillText("VAMOS", GAME_W/2, 60); ctx.fillText("FLUTUAR", GAME_W/2, 90);
+    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="red"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText(t, 120, y+20); };
+    btn("JOGAR", 160); btn("LOJA", 200);
+  } else if(state==="GAMEOVER") {
+    ctx.fillStyle="rgba(0,0,0,0.85)"; ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle="red"; ctx.textAlign="center"; ctx.font="12px 'Press Start 2P'"; ctx.fillText("FIM DE JOGO", 120, 100);
+    const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(45, y, 150, 30); ctx.strokeStyle="white"; ctx.strokeRect(45, y, 150, 30); ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText(t, 120, y+20); };
+    btn("RECOMECAR", 200); btn("MENU", 240);
+  } else if(state==="SHOP") {
+    ctx.fillStyle="#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
+    ["balloons", "skins", "skills"].forEach((t, i) => { ctx.fillStyle=shopTab===t?"red":"#222"; ctx.fillRect(i*80, 30, 80, 25); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.textAlign="center"; ctx.fillText(t.toUpperCase(), i*80+40, 46); });
+    DB[shopTab].forEach((item, i) => { let y=70+i*42; ctx.fillStyle="#111"; ctx.fillRect(10, y, 220, 35); ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(LANGS.pt.items[item.id], 20, y+22); });
+    ctx.textAlign="center"; ctx.fillText("VOLTAR", 120, 345);
+    if(previewItem) {
+      ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H);
+      ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText(LANGS.pt.items[previewItem.id], 120, 80);
+      if(shopTab==="balloons") drawBallon(105, 120, previewItem.color, 2.5); 
+      else if(shopTab==="skins") drawSkin(105, 120, previewItem.id, 3);
+      else drawSkillIcon(105, 120, previewItem.id);
+      ctx.fillStyle="red"; ctx.fillRect(60, 235, 120, 35); ctx.fillStyle="white"; ctx.fillText("OK", 120, 258);
+      ctx.fillText("FECHAR", 120, 300);
+    }
   }
   requestAnimationFrame(loop);
 }
