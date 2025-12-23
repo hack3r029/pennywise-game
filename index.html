@@ -47,12 +47,19 @@
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const data = snap.data();
-      SAVES.coins = data.coins || 0;
-      SAVES.best = data.best || 0;
-      SAVES.balloons = data.balloons || ["red"];
+      SAVES.coins = data.coins !== undefined ? data.coins : SAVES.coins;
+      SAVES.best = data.best !== undefined ? data.best : SAVES.best;
+      SAVES.balloons = data.balloons || SAVES.balloons;
+      SAVES.usedCodes = data.usedCodes || [];
       saveData();
     } else {
-      await setDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, email: window.fbUser.email });
+      await setDoc(ref, { 
+        coins: SAVES.coins, 
+        best: SAVES.best, 
+        balloons: SAVES.balloons, 
+        usedCodes: SAVES.usedCodes,
+        email: window.fbUser.email 
+      });
     }
   };
 
@@ -66,7 +73,7 @@
       const res = await signInWithEmailAndPassword(auth, email, pass);
       window.fbUser = res.user;
     } catch (err) {
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         try {
           const res = await createUserWithEmailAndPassword(auth, email, pass);
           window.fbUser = res.user;
@@ -84,7 +91,12 @@
   window.saveToCloud = async () => {
     if (!window.fbUser) return;
     const ref = doc(db, "users", window.fbUser.uid);
-    await updateDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons });
+    await updateDoc(ref, { 
+      coins: SAVES.coins, 
+      best: SAVES.best, 
+      balloons: SAVES.balloons,
+      usedCodes: SAVES.usedCodes 
+    });
   };
 </script>
 
@@ -122,7 +134,8 @@ let SAVES = {
   coins: parseInt(localStorage.getItem("coins")) || 0,
   best: parseInt(localStorage.getItem("best")) || 0,
   balloons: JSON.parse(localStorage.getItem("myBalloons")) || ["red"],
-  equipped: { balloon: localStorage.getItem("eqBalloon") || "red" }
+  equipped: { balloon: localStorage.getItem("eqBalloon") || "red" },
+  usedCodes: JSON.parse(localStorage.getItem("usedCodes")) || []
 };
 
 function saveData() {
@@ -130,6 +143,7 @@ function saveData() {
   localStorage.setItem("best", SAVES.best);
   localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
   localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
+  localStorage.setItem("usedCodes", JSON.stringify(SAVES.usedCodes));
   if(window.saveToCloud) window.saveToCloud();
 }
 
@@ -186,10 +200,29 @@ const player = { x: 50, y: 150, w: 14, h: 22, vy: 0, g: 0.18, jf: -3.8,
 };
 
 function processRedeem() {
-    let code = prompt("CÓDIGO:").toUpperCase();
-    if(code === "FLUTUAR") { SAVES.coins += 500; redeemStatus = "+500 COINS!"; saveData(); }
-    else if(code === "DERRY") { SAVES.coins += 1000; redeemStatus = "+1000 COINS!"; saveData(); }
-    else { redeemStatus = "INVÁLIDO"; }
+    if (!window.fbUser) {
+        alert("FAÇA LOGIN PARA RESGATAR!");
+        return;
+    }
+    let input = prompt("DIGITE O CÓDIGO:");
+    if (!input) return;
+    let code = input.trim().toUpperCase();
+
+    if (SAVES.usedCodes.includes(code)) {
+        redeemStatus = "JÁ RESGATADO!";
+    } else if (code === "FLUTUAR") {
+        SAVES.coins += 500;
+        SAVES.usedCodes.push(code);
+        redeemStatus = "+500 MOEDAS!";
+        saveData();
+    } else if (code === "DERRY") {
+        SAVES.coins += 1000;
+        SAVES.usedCodes.push(code);
+        redeemStatus = "+1000 MOEDAS!";
+        saveData();
+    } else {
+        redeemStatus = "INVÁLIDO";
+    }
     setTimeout(() => redeemStatus = "", 2000);
 }
 
