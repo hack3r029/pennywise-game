@@ -33,7 +33,7 @@ canvas{
 <script>
 // ================= CONFIG =================
 const W = 160, H = 240;
-const SCALE = 4; // 🔼 layout maior
+const SCALE = 4;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha:false });
@@ -58,9 +58,20 @@ function initAudio(){
 function tone(f,d=0.1){
   if(!audioCtx) return;
   const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-  o.type="square"; o.frequency.value=f; g.gain.value=0.05;
-  o.connect(g); g.connect(audioCtx.destination);
-  o.start(); o.stop(audioCtx.currentTime+d);
+  o.type="square"; 
+  o.frequency.value=f; 
+  g.gain.value=0.05;
+  o.connect(g); 
+  g.connect(audioCtx.destination);
+  o.start(); 
+  o.stop(audioCtx.currentTime+d);
+}
+
+// 🎵 SOM FELIZ A CADA 10 BALÕES
+function happy10(){
+  [523,659,784].forEach((f,i)=>{
+    setTimeout(()=>tone(f,0.12),i*120);
+  });
 }
 
 // ================= SHOP DATA =================
@@ -80,7 +91,7 @@ function balloonCol(){
   return it?.color||"#ff0000";
 }
 
-// ================= BACKGROUND (ANDANDO PRA ESQUERDA) =================
+// ================= BACKGROUND =================
 let bgX=0;
 let signX=W+200;
 
@@ -102,14 +113,12 @@ function drawBackground(){
     }
   }
 
-  // circo
   const tentX=30-bgX*0.5;
   ctx.fillStyle="#7a0000";
   ctx.fillRect(tentX,H-58,96,28);
   ctx.fillStyle="#ff0000";
   for(let i=0;i<7;i++) ctx.fillRect(tentX+i*14,H-58,7,28);
 
-  // placa
   ctx.fillStyle="#111";
   ctx.fillRect(signX,H-88,112,14);
   ctx.fillStyle="#fff";
@@ -152,7 +161,7 @@ const player={
   }
 };
 
-// ================= BALLOONS (VINDO DA DIREITA) =================
+// ================= BALLOONS =================
 let balloons=[];
 function spawnBalloon(){
   balloons.push({x:W+10,y:40+Math.random()*120});
@@ -161,13 +170,22 @@ function updateBalloons(){
   for(let i=balloons.length-1;i>=0;i--){
     const b=balloons[i];
     b.x-=1.0;
+
     if(
       player.x<b.x+6&&player.x+player.w>b.x&&
       player.y<b.y+8&&player.y+player.h>b.y
     ){
       balloons.splice(i,1);
-      score++; coins++;
-      initAudio(); tone(650,0.08);
+      score++; 
+      coins++;
+
+      initAudio();
+      tone(650,0.08); // som normal
+
+      // 🔔 SOM A CADA 10 BALÕES
+      if(score % 10 === 0){
+        happy10();
+      }
       continue;
     }
     if(b.x<-10) balloons.splice(i,1);
