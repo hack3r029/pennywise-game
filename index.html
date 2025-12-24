@@ -154,7 +154,7 @@ function drawSkin(x, y, id="pennywise", sc=1, yellowEyes=false) {
     if(id === "will") { skinCol = "#8d5524"; hairCol = "#000"; }
     else if(id === "lily") { skinCol = "#ffdbac"; hairCol = "#634133"; }
     else if(id === "marge") { skinCol = "#f1c27d"; hairCol = "#ffd700"; }
-    else if(id === "eros") { skinCol = "#3c2e28"; hairCol = "#444"; }
+    else if(id === "eros") { skinCol = "#8d5524"; hairCol = "#444"; } // MESMA COR DO WILL
     else if(id === "pollyana") { skinCol = "#ffdbac"; hairCol = "#ffcc00"; }
     ctx.fillStyle = skinCol; ctx.fillRect(1, 0, 12, 10);
     ctx.fillStyle = hairCol; ctx.fillRect(1, -2, 12, 4);
@@ -211,7 +211,7 @@ function update() {
        entities.push({x:GAME_W+20, y:Math.random()*280, type:type, angle:0});
     }
   } else if (state === "DEAD" && deathType === "lights") {
-    player.y -= 0.5; // Flutua lentamente na morte pelas luzes
+    player.y -= 0.5;
   }
 }
 
