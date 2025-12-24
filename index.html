@@ -73,10 +73,11 @@
       SAVES.coins = data.coins || SAVES.coins;
       SAVES.best = data.best || SAVES.best;
       SAVES.balloons = data.balloons || SAVES.balloons;
+      SAVES.skins = data.skins || ["pennywise"];
       SAVES.usedCodes = data.usedCodes || [];
       saveData();
     } else {
-      await setDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, usedCodes: SAVES.usedCodes, email: window.fbUser.email });
+      await setDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, skins: ["pennywise"], usedCodes: SAVES.usedCodes, email: window.fbUser.email });
     }
   };
 
@@ -101,14 +102,14 @@
     if (!window.fbUser) { alert("FAÇA LOGIN PRIMEIRO!"); return; }
     const input = document.getElementById("redeem-code").value.trim().toUpperCase();
     if (!input) return;
-    if (SAVES.usedCodes.includes(input)) { alert("CÓDIGO JÁ USADO!"); return; }
+    if (SAVES.usedCodes.map(c => c.toUpperCase()).includes(input)) { alert("CÓDIGO JÁ USADO!"); return; }
 
     if (input === "FLUTUAR") {
         SAVES.coins += 500; SAVES.usedCodes.push("FLUTUAR");
-        saveData(); alert("RESGATADO: +500 MOEDAS!"); closeModals();
+        saveData(); alert("RESGATADO: +500 MOEDAS!"); closeModals(); playSound('collect');
     } else if (input === "DERRY") {
         SAVES.coins += 1000; SAVES.usedCodes.push("DERRY");
-        saveData(); alert("RESGATADO: +1000 MOEDAS!"); closeModals();
+        saveData(); alert("RESGATADO: +1000 MOEDAS!"); closeModals(); playSound('collect');
     } else { alert("CÓDIGO INVÁLIDO"); }
   };
 
@@ -119,22 +120,64 @@
   window.saveToCloud = async () => {
     if (!window.fbUser) return;
     const ref = doc(db, "users", window.fbUser.uid);
-    await updateDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, usedCodes: SAVES.usedCodes });
+    await updateDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, skins: SAVES.skins, usedCodes: SAVES.usedCodes });
   };
 </script>
 
 <script>
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  if (type === 'jump') {
+    osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(400, now + 0.1);
+    gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    osc.start(); osc.stop(now + 0.1);
+  } else if (type === 'collect') {
+    osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(900, now + 0.1);
+    gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc.start(); osc.stop(now + 0.2);
+  } else if (type === 'death') {
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
+    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+    osc.start(); osc.stop(now + 0.3);
+  } else if (type === 'click') {
+    osc.frequency.setValueAtTime(300, now); gain.gain.setValueAtTime(0.05, now);
+    osc.start(); osc.stop(now + 0.05);
+  }
+}
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: false });
 const GAME_W = 240; const GAME_H = 360;
 
-const LANGS = { pt: { items: { red: "SANGUE", blue: "NOTURNO", green: "TOXICO", gold: "OURO", cyan: "NEON" } } };
-const DB = { balloons: [{id:"red", price:0, color:"#ff0000"}, {id:"blue", price:50, color:"#0088ff"}, {id:"green", price:150, color:"#00ff00"}, {id:"gold", price:500, color:"#ffcc00"}, {id:"cyan", price:1000, color:"#00ffff"}] };
+const DB = { 
+    balloons: [
+      {id:"red", price:0, color:"#ff0000", name:"SANGUE"}, 
+      {id:"blue", price:50, color:"#0088ff", name:"NOTURNO"}, 
+      {id:"green", price:150, color:"#00ff00", name:"TOXICO"}, 
+      {id:"gold", price:500, color:"#ffcc00", name:"OURO"}, 
+      {id:"cyan", price:1000, color:"#00ffff", name:"NEON"}
+    ],
+    skins: [
+      {id:"pennywise", price:0, name:"PENNYWISE"},
+      {id:"will", price:200, name:"WILL"},
+      {id:"lily", price:200, name:"LILY"},
+      {id:"marge", price:300, name:"MARGE"},
+      {id:"eros", price:300, name:"EROS"},
+      {id:"pollyana", price:400, name:"POLLYANA"}
+    ],
+    powers: [{id:"shield", price:1500, name:"ESCUDO"}]
+};
+
 let SAVES = {
   coins: parseInt(localStorage.getItem("coins")) || 0,
   best: parseInt(localStorage.getItem("best")) || 0,
   balloons: JSON.parse(localStorage.getItem("myBalloons")) || ["red"],
-  equipped: { balloon: localStorage.getItem("eqBalloon") || "red" },
+  skins: JSON.parse(localStorage.getItem("mySkins")) || ["pennywise"],
+  equipped: { balloon: localStorage.getItem("eqBalloon") || "red", skin: localStorage.getItem("eqSkin") || "pennywise" },
   usedCodes: JSON.parse(localStorage.getItem("usedCodes")) || []
 };
 
@@ -142,7 +185,9 @@ function saveData() {
   localStorage.setItem("coins", SAVES.coins);
   localStorage.setItem("best", SAVES.best);
   localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
+  localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
   localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
+  localStorage.setItem("eqSkin", SAVES.equipped.skin);
   localStorage.setItem("usedCodes", JSON.stringify(SAVES.usedCodes));
   if(window.saveToCloud) window.saveToCloud();
 }
@@ -152,7 +197,7 @@ function closeModals() {
   document.getElementById("modal-redeem").style.display = "none";
 }
 
-let state = "MENU", frames = 0, score = 0, speed = 2, entities = [], gameStarted = false, previewItem = null;
+let state = "MENU", frames = 0, score = 0, speed = 2, entities = [], gameStarted = false, previewItem = null, shopTab = "balloons";
 const player = { x: 50, y: 150, vy: 0, g: 0.18, jf: -3.8, reset() { this.y=150; this.vy=0; score=0; entities=[]; gameStarted=false; } };
 
 function resize() {
@@ -164,12 +209,45 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
-function drawSkin(x, y) {
-  ctx.save(); ctx.translate(x, y);
-  ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
-  ctx.fillStyle = "#ccc"; ctx.fillRect(2, 10, 10, 12);
-  ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10);
-  ctx.fillStyle = "#222"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
+function drawSkin(x, y, id="pennywise", sc=1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  
+  // Cores de base
+  let skinCol = "#ffdbac"; // Pele clara padrão
+  let hairCol = "#000";
+  
+  // Desenho do corpo básico (Roupa)
+  ctx.fillStyle = "#333"; 
+  if(id === "pennywise") ctx.fillStyle = "#ccc";
+  ctx.fillRect(2, 10, 10, 12); 
+
+  // Detalhes por ID
+  if(id === "pennywise") {
+    ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10); // Rosto branco
+    ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6); // Cabelo palhaço
+    ctx.fillStyle = "#000"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2); // Olhos
+  } else {
+    // Configurações de personagens humanos
+    if(id === "will") { skinCol = "#8d5524"; hairCol = "#000"; }
+    if(id === "lily") { skinCol = "#ffdbac"; hairCol = "#634133"; }
+    if(id === "marge") { skinCol = "#f1c27d"; hairCol = "#ffd700"; }
+    if(id === "eros") { skinCol = "#3c2e28"; hairCol = "#444"; }
+    if(id === "pollyana") { skinCol = "#ffdbac"; hairCol = "#ffcc00"; }
+
+    // Rosto
+    ctx.fillStyle = skinCol; ctx.fillRect(1, 0, 12, 10);
+    // Cabelo
+    ctx.fillStyle = hairCol; ctx.fillRect(1, -2, 12, 4); // Topo
+    if(id === "lily" || id === "pollyana") ctx.fillRect(11, 0, 3, 10); // Cabelo comprido
+    if(id === "marge") { // Óculos
+       ctx.strokeStyle = "#000"; ctx.lineWidth=1; ctx.strokeRect(2,3,4,3); ctx.strokeRect(8,3,4,3);
+    }
+    if(id === "eros") { // Estilo Rocker
+       ctx.fillStyle = "#d00"; ctx.fillRect(4, -4, 4, 4); // Pequeno Moicano
+    }
+    // Olhos
+    ctx.fillStyle = "#000"; ctx.fillRect(3, 4, 2, 2); ctx.fillRect(9, 4, 2, 2);
+  }
   ctx.restore();
 }
 
@@ -189,13 +267,13 @@ function drawSaw(x, y, angle) {
 function update() {
   if (state === "GAME" && gameStarted) {
     player.vy += player.g; player.y += player.vy;
-    if (player.y > GAME_H - 40 || player.y < -35) { state = "MENU"; if(score > SAVES.best) SAVES.best = score; saveData(); }
+    if (player.y > GAME_H - 40 || player.y < -35) { playSound('death'); state = "DEAD"; if(score > SAVES.best) SAVES.best = score; saveData(); }
     frames++;
     for (let i = entities.length - 1; i >= 0; i--) {
       let e = entities[i]; e.x -= speed; if(e.type === "saw") e.angle += 0.2;
       if (player.x < e.x + 18 && player.x + 14 > e.x && player.y < e.y + 18 && player.y + 22 > e.y) {
-        if (e.type === "balloon") { score++; SAVES.coins++; entities.splice(i, 1); }
-        else { state = "MENU"; if(score > SAVES.best) SAVES.best = score; saveData(); }
+        if (e.type === "balloon") { playSound('collect'); score++; SAVES.coins++; entities.splice(i, 1); }
+        else { playSound('death'); state = "DEAD"; if(score > SAVES.best) SAVES.best = score; saveData(); }
       }
       if (e.x < -40) entities.splice(i, 1);
     }
@@ -205,27 +283,38 @@ function update() {
 }
 
 function handleInput(e) {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
   if (e.cancelable) e.preventDefault();
   const r = canvas.getBoundingClientRect(); const touch = (e.touches && e.touches[0]) || e;
   const gx = (touch.clientX - r.left) * (GAME_W / r.width); const gy = (touch.clientY - r.top) * (GAME_H / r.height);
 
   if (state === "MENU") {
-    if (gy > 140 && gy < 170) { player.reset(); state="GAME"; }
-    else if (gy > 180 && gy < 210) state="SHOP";
+    if (gy > 140 && gy < 170) { player.reset(); state="GAME"; playSound('click'); }
+    else if (gy > 180 && gy < 210) { state="SHOP"; playSound('click'); }
     else if (gy > 220 && gy < 250) document.getElementById("modal-auth").style.display = "flex";
     else if (gy > 260 && gy < 290) document.getElementById("modal-redeem").style.display = "flex";
-  } else if (state === "GAME") { gameStarted = true; player.vy = player.jf; 
+  } else if (state === "GAME") { gameStarted = true; player.vy = player.jf; playSound('jump');
+  } else if (state === "DEAD") {
+    if (gy > 200 && gy < 235) { player.reset(); state="GAME"; playSound('click'); }
+    else if (gy > 245 && gy < 280) { state="MENU"; playSound('click'); }
   } else if (state === "SHOP") {
     if (previewItem) {
       if (gy > 230 && gy < 265) {
-        if (SAVES.balloons.includes(previewItem.id)) { SAVES.equipped.balloon = previewItem.id; }
-        else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; SAVES.balloons.push(previewItem.id); }
-        saveData();
+        const myItems = shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : []);
+        if (myItems.includes(previewItem.id)) { SAVES.equipped[shopTab === "balloons" ? "balloon" : "skin"] = previewItem.id; playSound('click'); }
+        else if (SAVES.coins >= previewItem.price) { SAVES.coins -= previewItem.price; myItems.push(previewItem.id); playSound('collect'); }
+        saveData(); previewItem = null;
       } else if (gy > 280) previewItem = null;
     } else {
-      if (gy > 320) state="MENU";
-      else DB.balloons.forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) previewItem = item; });
+      if (gy < 60) {
+        if (gx < 80) shopTab = "balloons"; else if (gx < 160) shopTab = "skins"; else shopTab = "powers";
+        playSound('click');
+      } else if (gy > 320) { state="MENU"; playSound('click'); }
+      else {
+        const items = DB[shopTab] || [];
+        items.forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) { previewItem = item; playSound('click'); } });
+      }
     }
   }
 }
@@ -234,7 +323,8 @@ window.addEventListener("mousedown", handleInput);
 
 function loop() {
   update();
-  ctx.fillStyle = "#05000a"; ctx.fillRect(0,0,GAME_W,GAME_H);
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
+  
   if (state === "MENU") {
     ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
     ctx.fillText("VAMOS FLUTUAR", 120, 60);
@@ -243,27 +333,58 @@ function loop() {
     let userT = window.fbUser ? window.fbUser.email.split("@")[0].toUpperCase() : "LOGIN / CADASTRO";
     btn(userT, 220, window.fbUser ? "#0f0" : "red");
     btn("RESGATAR CÓDIGO", 260, "cyan");
+
   } else if (state === "GAME") {
       entities.forEach(e => { if(e.type === "balloon") drawBallon(e.x, e.y, e.color); else drawSaw(e.x, e.y, e.angle); });
       drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
-      drawSkin(player.x, player.y);
-      ctx.fillStyle="#fff"; ctx.font="8px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 10, 20);
-      ctx.textAlign="right"; ctx.fillText("$"+SAVES.coins, 230, 20);
+      drawSkin(player.x, player.y, SAVES.equipped.skin);
+      ctx.fillStyle="#fff"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 15, 30);
+      ctx.textAlign="right"; ctx.fillStyle="#ffd700"; ctx.fillText("$"+SAVES.coins, 225, 30);
+
+  } else if (state === "DEAD") {
+      ctx.textAlign="center"; ctx.fillStyle="red"; ctx.font="16px 'Press Start 2P'"; ctx.fillText("MORREU!", 120, 100);
+      ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("PONTOS: "+score, 120, 135);
+      const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(40, y, 160, 35); ctx.strokeStyle="red"; ctx.strokeRect(40, y, 160, 35); ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.fillText(t, 120, y+22); };
+      btn("RECOMECAR", 200); btn("MENU", 245);
+
   } else if (state === "SHOP") {
-      ctx.fillStyle="red"; ctx.textAlign="center"; ctx.font="10px 'Press Start 2P'"; ctx.fillText("LOJA", 120, 40);
-      DB.balloons.forEach((item, i) => { 
-        let y=70+i*42; let isUsed = SAVES.equipped.balloon === item.id;
-        ctx.fillStyle="#111"; ctx.fillRect(10, y, 220, 35); ctx.strokeStyle=isUsed?"#0f0":"#333"; ctx.strokeRect(10, y, 220, 35);
-        ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(LANGS.pt.items[item.id], 20, y+22);
-        ctx.textAlign="right"; ctx.fillStyle=isUsed?"#0f0":"#ffd700"; ctx.fillText(SAVES.balloons.includes(item.id)?"TER":"$"+item.price, 220, y+22);
+      const tabs = ["BALAO", "SKIN", "PODER"];
+      tabs.forEach((t, i) => {
+          ctx.fillStyle = (shopTab === (i===0?"balloons":i===1?"skins":"powers")) ? "red" : "#222";
+          ctx.fillRect(5 + i*78, 15, 74, 30); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.fillText(t, 42 + i*78, 33);
       });
-      ctx.textAlign="center"; ctx.fillStyle="white"; ctx.fillText("VOLTAR", 120, 345);
+
+      const items = DB[shopTab] || [];
+      items.forEach((item, i) => { 
+        let y=70+i*42; 
+        let isEquip = (SAVES.equipped.balloon === item.id || SAVES.equipped.skin === item.id);
+        ctx.fillStyle="#111"; ctx.fillRect(10, y, 35, 35); // Box preview ícone
+        ctx.fillStyle="#111"; ctx.fillRect(50, y, 180, 35); 
+        ctx.strokeStyle=isEquip?"#0f0":"#444"; ctx.strokeRect(50, y, 180, 35);
+        
+        // Desenha mini ícone
+        if(shopTab === "balloons") drawBallon(15, y+5, item.color, 1.2);
+        else if(shopTab === "skins") drawSkin(20, y+8, item.id, 1);
+
+        ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; 
+        ctx.fillText(item.name, 60, y+22);
+        ctx.textAlign="right"; ctx.fillStyle=isEquip?"#0f0":"#ffd700"; 
+        const owns = (shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : [])).includes(item.id);
+        ctx.fillText(owns?"TER":"$"+item.price, 220, y+22);
+      });
+      ctx.textAlign="center"; ctx.fillStyle="#666"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("VOLTAR", 120, 345);
+      
       if(previewItem) {
         ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H);
-        drawBallon(105, 120, previewItem.color, 2.5);
-        ctx.fillStyle="red"; ctx.fillRect(60, 235, 120, 35); ctx.fillStyle="white";
-        ctx.fillText(SAVES.balloons.includes(previewItem.id)?"EQUIPAR":"COMPRAR", 120, 258);
-        ctx.fillText("FECHAR", 120, 300);
+        if (shopTab === "balloons") drawBallon(105, 110, previewItem.color, 2.5);
+        else if (shopTab === "skins") drawSkin(105, 120, previewItem.id, 2.5);
+        
+        ctx.fillStyle="white"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="center";
+        ctx.fillText(previewItem.name, 120, 200);
+        ctx.fillStyle="red"; ctx.fillRect(50, 230, 140, 40); ctx.fillStyle="white";
+        const owns = (shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : [])).includes(previewItem.id);
+        ctx.fillText(owns?"EQUIPAR":"COMPRAR", 120, 255);
+        ctx.fillStyle="#666"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("FECHAR", 120, 305);
       }
   }
   requestAnimationFrame(loop);
