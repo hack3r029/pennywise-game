@@ -211,41 +211,25 @@ window.addEventListener('resize', resize); resize();
 
 function drawSkin(x, y, id="pennywise", sc=1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
-  
-  // Cores de base
-  let skinCol = "#ffdbac"; // Pele clara padrão
-  let hairCol = "#000";
-  
-  // Desenho do corpo básico (Roupa)
+  let skinCol = "#ffdbac"; let hairCol = "#000";
   ctx.fillStyle = "#333"; 
   if(id === "pennywise") ctx.fillStyle = "#ccc";
   ctx.fillRect(2, 10, 10, 12); 
-
-  // Detalhes por ID
   if(id === "pennywise") {
-    ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10); // Rosto branco
-    ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6); // Cabelo palhaço
-    ctx.fillStyle = "#000"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2); // Olhos
+    ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10);
+    ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
+    ctx.fillStyle = "#000"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
   } else {
-    // Configurações de personagens humanos
     if(id === "will") { skinCol = "#8d5524"; hairCol = "#000"; }
     if(id === "lily") { skinCol = "#ffdbac"; hairCol = "#634133"; }
     if(id === "marge") { skinCol = "#f1c27d"; hairCol = "#ffd700"; }
     if(id === "eros") { skinCol = "#3c2e28"; hairCol = "#444"; }
     if(id === "pollyana") { skinCol = "#ffdbac"; hairCol = "#ffcc00"; }
-
-    // Rosto
     ctx.fillStyle = skinCol; ctx.fillRect(1, 0, 12, 10);
-    // Cabelo
-    ctx.fillStyle = hairCol; ctx.fillRect(1, -2, 12, 4); // Topo
-    if(id === "lily" || id === "pollyana") ctx.fillRect(11, 0, 3, 10); // Cabelo comprido
-    if(id === "marge") { // Óculos
-       ctx.strokeStyle = "#000"; ctx.lineWidth=1; ctx.strokeRect(2,3,4,3); ctx.strokeRect(8,3,4,3);
-    }
-    if(id === "eros") { // Estilo Rocker
-       ctx.fillStyle = "#d00"; ctx.fillRect(4, -4, 4, 4); // Pequeno Moicano
-    }
-    // Olhos
+    ctx.fillStyle = hairCol; ctx.fillRect(1, -2, 12, 4);
+    if(id === "lily" || id === "pollyana") ctx.fillRect(11, 0, 3, 10);
+    if(id === "marge") { ctx.strokeStyle = "#000"; ctx.lineWidth=1; ctx.strokeRect(2,3,4,3); ctx.strokeRect(8,3,4,3); }
+    if(id === "eros") { ctx.fillStyle = "#d00"; ctx.fillRect(4, -4, 4, 4); }
     ctx.fillStyle = "#000"; ctx.fillRect(3, 4, 2, 2); ctx.fillRect(9, 4, 2, 2);
   }
   ctx.restore();
@@ -272,7 +256,12 @@ function update() {
     for (let i = entities.length - 1; i >= 0; i--) {
       let e = entities[i]; e.x -= speed; if(e.type === "saw") e.angle += 0.2;
       if (player.x < e.x + 18 && player.x + 14 > e.x && player.y < e.y + 18 && player.y + 22 > e.y) {
-        if (e.type === "balloon") { playSound('collect'); score++; SAVES.coins++; entities.splice(i, 1); }
+        if (e.type === "balloon") { 
+            playSound('collect'); 
+            score++; 
+            SAVES.coins += 10; // CADA BALÃO VALE 10 MOEDAS
+            entities.splice(i, 1); 
+        }
         else { playSound('death'); state = "DEAD"; if(score > SAVES.best) SAVES.best = score; saveData(); }
       }
       if (e.x < -40) entities.splice(i, 1);
@@ -288,7 +277,6 @@ function handleInput(e) {
   if (e.cancelable) e.preventDefault();
   const r = canvas.getBoundingClientRect(); const touch = (e.touches && e.touches[0]) || e;
   const gx = (touch.clientX - r.left) * (GAME_W / r.width); const gy = (touch.clientY - r.top) * (GAME_H / r.height);
-
   if (state === "MENU") {
     if (gy > 140 && gy < 170) { player.reset(); state="GAME"; playSound('click'); }
     else if (gy > 180 && gy < 210) { state="SHOP"; playSound('click'); }
@@ -324,7 +312,6 @@ window.addEventListener("mousedown", handleInput);
 function loop() {
   update();
   ctx.fillStyle = "#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
-  
   if (state === "MENU") {
     ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
     ctx.fillText("VAMOS FLUTUAR", 120, 60);
@@ -333,39 +320,32 @@ function loop() {
     let userT = window.fbUser ? window.fbUser.email.split("@")[0].toUpperCase() : "LOGIN / CADASTRO";
     btn(userT, 220, window.fbUser ? "#0f0" : "red");
     btn("RESGATAR CÓDIGO", 260, "cyan");
-
   } else if (state === "GAME") {
       entities.forEach(e => { if(e.type === "balloon") drawBallon(e.x, e.y, e.color); else drawSaw(e.x, e.y, e.angle); });
       drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
       drawSkin(player.x, player.y, SAVES.equipped.skin);
       ctx.fillStyle="#fff"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 15, 30);
       ctx.textAlign="right"; ctx.fillStyle="#ffd700"; ctx.fillText("$"+SAVES.coins, 225, 30);
-
   } else if (state === "DEAD") {
       ctx.textAlign="center"; ctx.fillStyle="red"; ctx.font="16px 'Press Start 2P'"; ctx.fillText("MORREU!", 120, 100);
       ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("PONTOS: "+score, 120, 135);
       const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(40, y, 160, 35); ctx.strokeStyle="red"; ctx.strokeRect(40, y, 160, 35); ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.fillText(t, 120, y+22); };
       btn("RECOMECAR", 200); btn("MENU", 245);
-
   } else if (state === "SHOP") {
       const tabs = ["BALAO", "SKIN", "PODER"];
       tabs.forEach((t, i) => {
           ctx.fillStyle = (shopTab === (i===0?"balloons":i===1?"skins":"powers")) ? "red" : "#222";
           ctx.fillRect(5 + i*78, 15, 74, 30); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.fillText(t, 42 + i*78, 33);
       });
-
       const items = DB[shopTab] || [];
       items.forEach((item, i) => { 
         let y=70+i*42; 
         let isEquip = (SAVES.equipped.balloon === item.id || SAVES.equipped.skin === item.id);
-        ctx.fillStyle="#111"; ctx.fillRect(10, y, 35, 35); // Box preview ícone
+        ctx.fillStyle="#111"; ctx.fillRect(10, y, 35, 35);
         ctx.fillStyle="#111"; ctx.fillRect(50, y, 180, 35); 
         ctx.strokeStyle=isEquip?"#0f0":"#444"; ctx.strokeRect(50, y, 180, 35);
-        
-        // Desenha mini ícone
         if(shopTab === "balloons") drawBallon(15, y+5, item.color, 1.2);
         else if(shopTab === "skins") drawSkin(20, y+8, item.id, 1);
-
         ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; 
         ctx.fillText(item.name, 60, y+22);
         ctx.textAlign="right"; ctx.fillStyle=isEquip?"#0f0":"#ffd700"; 
@@ -373,12 +353,10 @@ function loop() {
         ctx.fillText(owns?"TER":"$"+item.price, 220, y+22);
       });
       ctx.textAlign="center"; ctx.fillStyle="#666"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("VOLTAR", 120, 345);
-      
       if(previewItem) {
         ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H);
         if (shopTab === "balloons") drawBallon(105, 110, previewItem.color, 2.5);
         else if (shopTab === "skins") drawSkin(105, 120, previewItem.id, 2.5);
-        
         ctx.fillStyle="white"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="center";
         ctx.fillText(previewItem.name, 120, 200);
         ctx.fillStyle="red"; ctx.fillRect(50, 230, 140, 40); ctx.fillStyle="white";
