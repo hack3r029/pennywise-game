@@ -49,19 +49,8 @@
   import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAihGsa8MKG30r8aoj6tnMBuM9e-Bk5eEI",
-    authDomain: "vamos-flutuar.firebaseapp.com",
-    projectId: "vamos-flutuar",
-    storageBucket: "vamos-flutuar.firebasestorage.app",
-    messagingSenderId: "21354937126",
-    appId: "1:21354937126:web:3c2c46a9bb287e4d2c1fe7"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
+  const firebaseConfig = { apiKey: "AIzaSyAihGsa8MKG30r8aoj6tnMBuM9e-Bk5eEI", authDomain: "vamos-flutuar.firebaseapp.com", projectId: "vamos-flutuar", storageBucket: "vamos-flutuar.firebasestorage.app", messagingSenderId: "21354937126", appId: "1:21354937126:web:3c2c46a9bb287e4d2c1fe7" };
+  const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
   window.fbUser = null;
 
   window.syncCloud = async () => {
@@ -70,30 +59,21 @@
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const data = snap.data();
-      SAVES.coins = data.coins || SAVES.coins;
-      SAVES.best = data.best || SAVES.best;
-      SAVES.balloons = data.balloons || SAVES.balloons;
-      SAVES.skins = data.skins || ["pennywise"];
-      SAVES.usedCodes = data.usedCodes || [];
-      saveData();
+      SAVES.coins = data.coins || SAVES.coins; SAVES.best = data.best || SAVES.best; SAVES.balloons = data.balloons || SAVES.balloons;
+      SAVES.skins = data.skins || ["pennywise"]; SAVES.usedCodes = data.usedCodes || []; saveData();
     } else {
       await setDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, skins: ["pennywise"], usedCodes: SAVES.usedCodes, email: window.fbUser.email });
     }
   };
 
   window.handleAuth = async () => {
-    const email = document.getElementById("email").value;
-    const pass = document.getElementById("pass").value;
+    const email = document.getElementById("email").value; const pass = document.getElementById("pass").value;
     if(!email || !pass) return alert("PREENCHA TUDO");
     try {
-      const res = await signInWithEmailAndPassword(auth, email, pass);
-      window.fbUser = res.user; closeModals();
+      const res = await signInWithEmailAndPassword(auth, email, pass); window.fbUser = res.user; closeModals();
     } catch (err) {
       if (err.code.includes('user-not-found') || err.code.includes('wrong-password') || err.code.includes('invalid-credential')) {
-        try {
-          const res = await createUserWithEmailAndPassword(auth, email, pass);
-          window.fbUser = res.user; closeModals(); alert("CONTA CRIADA!");
-        } catch (e) { alert("ERRO: " + e.message); }
+        try { const res = await createUserWithEmailAndPassword(auth, email, pass); window.fbUser = res.user; closeModals(); alert("CONTA CRIADA!"); } catch (e) { alert("ERRO: " + e.message); }
       } else { alert("ERRO: " + err.message); }
     }
   };
@@ -103,50 +83,25 @@
     const input = document.getElementById("redeem-code").value.trim().toUpperCase();
     if (!input) return;
     if (SAVES.usedCodes.map(c => c.toUpperCase()).includes(input)) { alert("CÓDIGO JÁ USADO!"); return; }
-
-    if (input === "FLUTUAR") {
-        SAVES.coins += 500; SAVES.usedCodes.push("FLUTUAR");
-        saveData(); alert("RESGATADO: +500 MOEDAS!"); closeModals(); playSound('collect');
-    } else if (input === "DERRY") {
-        SAVES.coins += 1000; SAVES.usedCodes.push("DERRY");
-        saveData(); alert("RESGATADO: +1000 MOEDAS!"); closeModals(); playSound('collect');
-    } else { alert("CÓDIGO INVÁLIDO"); }
+    if (input === "FLUTUAR") { SAVES.coins += 500; SAVES.usedCodes.push("FLUTUAR"); saveData(); alert("RESGATADO: +500 MOEDAS!"); closeModals(); playSound('collect'); }
+    else if (input === "DERRY") { SAVES.coins += 1000; SAVES.usedCodes.push("DERRY"); saveData(); alert("RESGATADO: +1000 MOEDAS!"); closeModals(); playSound('collect'); }
+    else { alert("CÓDIGO INVÁLIDO"); }
   };
 
-  onAuthStateChanged(auth, (user) => {
-    window.fbUser = user; if (user) window.syncCloud();
-  });
-
-  window.saveToCloud = async () => {
-    if (!window.fbUser) return;
-    const ref = doc(db, "users", window.fbUser.uid);
-    await updateDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, skins: SAVES.skins, usedCodes: SAVES.usedCodes });
-  };
+  onAuthStateChanged(auth, (user) => { window.fbUser = user; if (user) window.syncCloud(); });
+  window.saveToCloud = async () => { if (!window.fbUser) return; const ref = doc(db, "users", window.fbUser.uid); await updateDoc(ref, { coins: SAVES.coins, best: SAVES.best, balloons: SAVES.balloons, skins: SAVES.skins, usedCodes: SAVES.usedCodes }); };
 </script>
 
 <script>
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
   osc.connect(gain); gain.connect(audioCtx.destination);
   const now = audioCtx.currentTime;
-  if (type === 'jump') {
-    osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(400, now + 0.1);
-    gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-    osc.start(); osc.stop(now + 0.1);
-  } else if (type === 'collect') {
-    osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(900, now + 0.1);
-    gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    osc.start(); osc.stop(now + 0.2);
-  } else if (type === 'death') {
-    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
-    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-    osc.start(); osc.stop(now + 0.3);
-  } else if (type === 'click') {
-    osc.frequency.setValueAtTime(300, now); gain.gain.setValueAtTime(0.05, now);
-    osc.start(); osc.stop(now + 0.05);
-  }
+  if (type === 'jump') { osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(400, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); osc.start(); osc.stop(now + 0.1); }
+  else if (type === 'collect') { osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(900, now + 0.1); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); osc.start(); osc.stop(now + 0.2); }
+  else if (type === 'death') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(); osc.stop(now + 0.3); }
+  else if (type === 'click') { osc.frequency.setValueAtTime(300, now); gain.gain.setValueAtTime(0.05, now); osc.start(); osc.stop(now + 0.05); }
 }
 
 const canvas = document.getElementById("game");
@@ -154,21 +109,8 @@ const ctx = canvas.getContext("2d", { alpha: false });
 const GAME_W = 240; const GAME_H = 360;
 
 const DB = { 
-    balloons: [
-      {id:"red", price:0, color:"#ff0000", name:"SANGUE"}, 
-      {id:"blue", price:50, color:"#0088ff", name:"NOTURNO"}, 
-      {id:"green", price:150, color:"#00ff00", name:"TOXICO"}, 
-      {id:"gold", price:500, color:"#ffcc00", name:"OURO"}, 
-      {id:"cyan", price:1000, color:"#00ffff", name:"NEON"}
-    ],
-    skins: [
-      {id:"pennywise", price:0, name:"PENNYWISE"},
-      {id:"will", price:200, name:"WILL"},
-      {id:"lily", price:200, name:"LILY"},
-      {id:"marge", price:300, name:"MARGE"},
-      {id:"eros", price:300, name:"EROS"},
-      {id:"pollyana", price:400, name:"POLLYANA"}
-    ],
+    balloons: [{id:"red", price:0, color:"#ff0000", name:"SANGUE"}, {id:"blue", price:50, color:"#0088ff", name:"NOTURNO"}, {id:"green", price:150, color:"#00ff00", name:"TOXICO"}, {id:"gold", price:500, color:"#ffcc00", name:"OURO"}, {id:"cyan", price:1000, color:"#00ffff", name:"NEON"}],
+    skins: [{id:"pennywise", price:0, name:"PENNYWISE"}, {id:"will", price:200, name:"WILL"}, {id:"lily", price:200, name:"LILY"}, {id:"marge", price:300, name:"MARGE"}, {id:"eros", price:300, name:"EROS"}, {id:"pollyana", price:400, name:"POLLYANA"}],
     powers: [{id:"shield", price:1500, name:"ESCUDO"}]
 };
 
@@ -182,55 +124,44 @@ let SAVES = {
 };
 
 function saveData() {
-  localStorage.setItem("coins", SAVES.coins);
-  localStorage.setItem("best", SAVES.best);
-  localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons));
-  localStorage.setItem("mySkins", JSON.stringify(SAVES.skins));
-  localStorage.setItem("eqBalloon", SAVES.equipped.balloon);
-  localStorage.setItem("eqSkin", SAVES.equipped.skin);
-  localStorage.setItem("usedCodes", JSON.stringify(SAVES.usedCodes));
+  localStorage.setItem("coins", SAVES.coins); localStorage.setItem("best", SAVES.best); localStorage.setItem("myBalloons", JSON.stringify(SAVES.balloons)); localStorage.setItem("mySkins", JSON.stringify(SAVES.skins)); localStorage.setItem("eqBalloon", SAVES.equipped.balloon); localStorage.setItem("eqSkin", SAVES.equipped.skin); localStorage.setItem("usedCodes", JSON.stringify(SAVES.usedCodes));
   if(window.saveToCloud) window.saveToCloud();
 }
 
-function closeModals() {
-  document.getElementById("modal-auth").style.display = "none";
-  document.getElementById("modal-redeem").style.display = "none";
-}
+function closeModals() { document.getElementById("modal-auth").style.display = "none"; document.getElementById("modal-redeem").style.display = "none"; }
 
-let state = "MENU", frames = 0, score = 0, speed = 2, entities = [], gameStarted = false, previewItem = null, shopTab = "balloons";
-const player = { x: 50, y: 150, vy: 0, g: 0.18, jf: -3.8, reset() { this.y=150; this.vy=0; score=0; entities=[]; gameStarted=false; } };
+let state = "MENU", frames = 0, score = 0, speed = 2, entities = [], gameStarted = false, previewItem = null, shopTab = "balloons", deathType = "normal";
+const player = { x: 50, y: 150, vy: 0, g: 0.18, jf: -3.8, reset() { this.y=150; this.vy=0; score=0; entities=[]; gameStarted=false; deathType="normal"; } };
 
 function resize() {
   const scale = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
   const wrapper = document.getElementById("game-wrapper");
-  wrapper.style.width = Math.floor(GAME_W * scale) + "px";
-  wrapper.style.height = Math.floor(GAME_H * scale) + "px";
+  wrapper.style.width = Math.floor(GAME_W * scale) + "px"; wrapper.style.height = Math.floor(GAME_H * scale) + "px";
   canvas.width = GAME_W; canvas.height = GAME_H;
 }
 window.addEventListener('resize', resize); resize();
 
-function drawSkin(x, y, id="pennywise", sc=1) {
+function drawSkin(x, y, id="pennywise", sc=1, yellowEyes=false) {
   ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
   let skinCol = "#ffdbac"; let hairCol = "#000";
-  ctx.fillStyle = "#333"; 
-  if(id === "pennywise") ctx.fillStyle = "#ccc";
+  ctx.fillStyle = "#333"; if(id === "pennywise") ctx.fillStyle = "#ccc";
   ctx.fillRect(2, 10, 10, 12); 
   if(id === "pennywise") {
     ctx.fillStyle = "#fff"; ctx.fillRect(1, 0, 12, 10);
     ctx.fillStyle = "#d00"; ctx.fillRect(-2, 2, 4, 6); ctx.fillRect(12, 2, 4, 6);
-    ctx.fillStyle = "#000"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
+    ctx.fillStyle = yellowEyes ? "#ffff00" : "#000"; ctx.fillRect(3, 3, 2, 2); ctx.fillRect(9, 3, 2, 2);
   } else {
     if(id === "will") { skinCol = "#8d5524"; hairCol = "#000"; }
-    if(id === "lily") { skinCol = "#ffdbac"; hairCol = "#634133"; }
-    if(id === "marge") { skinCol = "#f1c27d"; hairCol = "#ffd700"; }
-    if(id === "eros") { skinCol = "#3c2e28"; hairCol = "#444"; }
-    if(id === "pollyana") { skinCol = "#ffdbac"; hairCol = "#ffcc00"; }
+    else if(id === "lily") { skinCol = "#ffdbac"; hairCol = "#634133"; }
+    else if(id === "marge") { skinCol = "#f1c27d"; hairCol = "#ffd700"; }
+    else if(id === "eros") { skinCol = "#3c2e28"; hairCol = "#444"; }
+    else if(id === "pollyana") { skinCol = "#ffdbac"; hairCol = "#ffcc00"; }
     ctx.fillStyle = skinCol; ctx.fillRect(1, 0, 12, 10);
     ctx.fillStyle = hairCol; ctx.fillRect(1, -2, 12, 4);
     if(id === "lily" || id === "pollyana") ctx.fillRect(11, 0, 3, 10);
     if(id === "marge") { ctx.strokeStyle = "#000"; ctx.lineWidth=1; ctx.strokeRect(2,3,4,3); ctx.strokeRect(8,3,4,3); }
     if(id === "eros") { ctx.fillStyle = "#d00"; ctx.fillRect(4, -4, 4, 4); }
-    ctx.fillStyle = "#000"; ctx.fillRect(3, 4, 2, 2); ctx.fillRect(9, 4, 2, 2);
+    ctx.fillStyle = yellowEyes ? "#ffff00" : "#000"; ctx.fillRect(3, 4, 2, 2); ctx.fillRect(9, 4, 2, 2);
   }
   ctx.restore();
 }
@@ -248,26 +179,39 @@ function drawSaw(x, y, angle) {
   ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.restore();
 }
 
+function drawDeadlights(x, y, f) {
+  ctx.save(); ctx.translate(x+10, y+10);
+  for(let i=0; i<3; i++) {
+    let a = (f*0.1) + (i * Math.PI * 2 / 3);
+    ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 10; ctx.shadowColor = "orange";
+    ctx.beginPath(); ctx.arc(Math.cos(a)*12, Math.sin(a)*12, 4, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function update() {
   if (state === "GAME" && gameStarted) {
     player.vy += player.g; player.y += player.vy;
-    if (player.y > GAME_H - 40 || player.y < -35) { playSound('death'); state = "DEAD"; if(score > SAVES.best) SAVES.best = score; saveData(); }
+    if (player.y > GAME_H - 40 || player.y < -35) { state = "DEAD"; deathType="normal"; playSound('death'); if(score > SAVES.best) SAVES.best = score; saveData(); }
     frames++;
     for (let i = entities.length - 1; i >= 0; i--) {
       let e = entities[i]; e.x -= speed; if(e.type === "saw") e.angle += 0.2;
       if (player.x < e.x + 18 && player.x + 14 > e.x && player.y < e.y + 18 && player.y + 22 > e.y) {
-        if (e.type === "balloon") { 
-            playSound('collect'); 
-            score++; 
-            SAVES.coins += 10; // CADA BALÃO VALE 10 MOEDAS
-            entities.splice(i, 1); 
-        }
-        else { playSound('death'); state = "DEAD"; if(score > SAVES.best) SAVES.best = score; saveData(); }
+        if (e.type === "balloon") { playSound('collect'); score++; SAVES.coins += 10; entities.splice(i, 1); }
+        else if (e.type === "deadlights") { state = "DEAD"; deathType="lights"; playSound('death'); if(score > SAVES.best) SAVES.best = score; saveData(); }
+        else { state = "DEAD"; deathType="normal"; playSound('death'); if(score > SAVES.best) SAVES.best = score; saveData(); }
       }
       if (e.x < -40) entities.splice(i, 1);
     }
     if (frames % 100 === 0) entities.push({x:GAME_W+20, y:50+Math.random()*200, type:"balloon", color:DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color});
-    if (frames % 160 === 0) entities.push({x:GAME_W+20, y:Math.random()*280, type:"saw", angle: 0});
+    if (frames % 140 === 0) {
+       let type = "saw";
+       if (score > 10 && score <= 20) type = "deadlights";
+       else if (score > 20) type = Math.random() > 0.5 ? "deadlights" : "saw";
+       entities.push({x:GAME_W+20, y:Math.random()*280, type:type, angle:0});
+    }
+  } else if (state === "DEAD" && deathType === "lights") {
+    player.y -= 0.5; // Flutua lentamente na morte pelas luzes
   }
 }
 
@@ -295,14 +239,9 @@ function handleInput(e) {
         saveData(); previewItem = null;
       } else if (gy > 280) previewItem = null;
     } else {
-      if (gy < 60) {
-        if (gx < 80) shopTab = "balloons"; else if (gx < 160) shopTab = "skins"; else shopTab = "powers";
-        playSound('click');
-      } else if (gy > 320) { state="MENU"; playSound('click'); }
-      else {
-        const items = DB[shopTab] || [];
-        items.forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) { previewItem = item; playSound('click'); } });
-      }
+      if (gy < 60) { if (gx < 80) shopTab = "balloons"; else if (gx < 160) shopTab = "skins"; else shopTab = "powers"; playSound('click'); }
+      else if (gy > 320) { state="MENU"; playSound('click'); }
+      else { const items = DB[shopTab] || []; items.forEach((item, i) => { if(gy > 70+i*42 && gy < 105+i*42) { previewItem = item; playSound('click'); } }); }
     }
   }
 }
@@ -310,58 +249,41 @@ window.addEventListener("touchstart", handleInput, {passive:false});
 window.addEventListener("mousedown", handleInput);
 
 function loop() {
-  update();
-  ctx.fillStyle = "#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
+  update(); ctx.fillStyle = "#000"; ctx.fillRect(0,0,GAME_W,GAME_H);
   if (state === "MENU") {
-    ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red";
-    ctx.fillText("VAMOS FLUTUAR", 120, 60);
+    ctx.textAlign = "center"; ctx.font = "14px 'Press Start 2P'"; ctx.fillStyle = "red"; ctx.fillText("VAMOS FLUTUAR", 120, 60);
     const btn = (t, y, c="red") => { ctx.fillStyle="#111"; ctx.fillRect(40, y, 160, 25); ctx.strokeStyle=c; ctx.strokeRect(40, y, 160, 25); ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.fillText(t, 120, y+16); };
-    btn("JOGAR", 140); btn("LOJA", 180);
-    let userT = window.fbUser ? window.fbUser.email.split("@")[0].toUpperCase() : "LOGIN / CADASTRO";
-    btn(userT, 220, window.fbUser ? "#0f0" : "red");
-    btn("RESGATAR CÓDIGO", 260, "cyan");
-  } else if (state === "GAME") {
-      entities.forEach(e => { if(e.type === "balloon") drawBallon(e.x, e.y, e.color); else drawSaw(e.x, e.y, e.angle); });
-      drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
-      drawSkin(player.x, player.y, SAVES.equipped.skin);
+    btn("JOGAR", 140); btn("LOJA", 180); btn(window.fbUser?window.fbUser.email.split("@")[0].toUpperCase():"LOGIN", 220, window.fbUser?"#0f0":"red"); btn("RESGATAR", 260, "cyan");
+  } else if (state === "GAME" || state === "DEAD") {
+      entities.forEach(e => { if(e.type==="balloon") drawBallon(e.x, e.y, e.color); else if(e.type==="saw") drawSaw(e.x, e.y, e.angle); else if(e.type==="deadlights") drawDeadlights(e.x, e.y, frames); });
+      if(state==="GAME") drawBallon(player.x-2, player.y-18, DB.balloons.find(b=>b.id===SAVES.equipped.balloon).color);
+      drawSkin(player.x, player.y, SAVES.equipped.skin, 1, deathType==="lights");
       ctx.fillStyle="#fff"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(score, 15, 30);
       ctx.textAlign="right"; ctx.fillStyle="#ffd700"; ctx.fillText("$"+SAVES.coins, 225, 30);
-  } else if (state === "DEAD") {
-      ctx.textAlign="center"; ctx.fillStyle="red"; ctx.font="16px 'Press Start 2P'"; ctx.fillText("MORREU!", 120, 100);
-      ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("PONTOS: "+score, 120, 135);
-      const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(40, y, 160, 35); ctx.strokeStyle="red"; ctx.strokeRect(40, y, 160, 35); ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.fillText(t, 120, y+22); };
-      btn("RECOMECAR", 200); btn("MENU", 245);
+      if (state === "DEAD") {
+          ctx.textAlign="center"; ctx.fillStyle="red"; ctx.font="16px 'Press Start 2P'"; ctx.fillText("MORREU!", 120, 100);
+          ctx.fillStyle="white"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("PONTOS: "+score, 120, 135);
+          const btn = (t, y) => { ctx.fillStyle="#111"; ctx.fillRect(40, y, 160, 35); ctx.strokeStyle="red"; ctx.strokeRect(40, y, 160, 35); ctx.fillStyle="white"; ctx.font="7px 'Press Start 2P'"; ctx.fillText(t, 120, y+22); };
+          btn("RECOMECAR", 200); btn("MENU", 245);
+      }
   } else if (state === "SHOP") {
       const tabs = ["BALAO", "SKIN", "PODER"];
-      tabs.forEach((t, i) => {
-          ctx.fillStyle = (shopTab === (i===0?"balloons":i===1?"skins":"powers")) ? "red" : "#222";
-          ctx.fillRect(5 + i*78, 15, 74, 30); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.fillText(t, 42 + i*78, 33);
-      });
+      tabs.forEach((t, i) => { ctx.fillStyle = (shopTab === (i===0?"balloons":i===1?"skins":"powers")) ? "red" : "#222"; ctx.fillRect(5 + i*78, 15, 74, 30); ctx.fillStyle="white"; ctx.font="5px 'Press Start 2P'"; ctx.fillText(t, 42 + i*78, 33); });
       const items = DB[shopTab] || [];
       items.forEach((item, i) => { 
-        let y=70+i*42; 
-        let isEquip = (SAVES.equipped.balloon === item.id || SAVES.equipped.skin === item.id);
-        ctx.fillStyle="#111"; ctx.fillRect(10, y, 35, 35);
-        ctx.fillStyle="#111"; ctx.fillRect(50, y, 180, 35); 
-        ctx.strokeStyle=isEquip?"#0f0":"#444"; ctx.strokeRect(50, y, 180, 35);
-        if(shopTab === "balloons") drawBallon(15, y+5, item.color, 1.2);
-        else if(shopTab === "skins") drawSkin(20, y+8, item.id, 1);
-        ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; 
-        ctx.fillText(item.name, 60, y+22);
-        ctx.textAlign="right"; ctx.fillStyle=isEquip?"#0f0":"#ffd700"; 
-        const owns = (shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : [])).includes(item.id);
+        let y=70+i*42; let isEquip = (SAVES.equipped.balloon === item.id || SAVES.equipped.skin === item.id);
+        ctx.fillStyle="#111"; ctx.fillRect(10, y, 35, 35); ctx.fillStyle="#111"; ctx.fillRect(50, y, 180, 35); ctx.strokeStyle=isEquip?"#0f0":"#444"; ctx.strokeRect(50, y, 180, 35);
+        if(shopTab === "balloons") drawBallon(15, y+5, item.color, 1.2); else if(shopTab === "skins") drawSkin(20, y+8, item.id, 1);
+        ctx.fillStyle="white"; ctx.font="6px 'Press Start 2P'"; ctx.textAlign="left"; ctx.fillText(item.name, 60, y+22);
+        ctx.textAlign="right"; ctx.fillStyle=isEquip?"#0f0":"#ffd700"; const owns = (shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : [])).includes(item.id);
         ctx.fillText(owns?"TER":"$"+item.price, 220, y+22);
       });
       ctx.textAlign="center"; ctx.fillStyle="#666"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("VOLTAR", 120, 345);
       if(previewItem) {
         ctx.fillStyle="rgba(0,0,0,0.95)"; ctx.fillRect(0,0,GAME_W,GAME_H);
-        if (shopTab === "balloons") drawBallon(105, 110, previewItem.color, 2.5);
-        else if (shopTab === "skins") drawSkin(105, 120, previewItem.id, 2.5);
-        ctx.fillStyle="white"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="center";
-        ctx.fillText(previewItem.name, 120, 200);
-        ctx.fillStyle="red"; ctx.fillRect(50, 230, 140, 40); ctx.fillStyle="white";
-        const owns = (shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : [])).includes(previewItem.id);
-        ctx.fillText(owns?"EQUIPAR":"COMPRAR", 120, 255);
+        if (shopTab === "balloons") drawBallon(105, 110, previewItem.color, 2.5); else if (shopTab === "skins") drawSkin(105, 120, previewItem.id, 2.5);
+        ctx.fillStyle="white"; ctx.font="10px 'Press Start 2P'"; ctx.textAlign="center"; ctx.fillText(previewItem.name, 120, 200);
+        ctx.fillStyle="red"; ctx.fillRect(50, 230, 140, 40); ctx.fillStyle="white"; const owns = (shopTab === "balloons" ? SAVES.balloons : (shopTab === "skins" ? SAVES.skins : [])).includes(previewItem.id); ctx.fillText(owns?"EQUIPAR":"COMPRAR", 120, 255);
         ctx.fillStyle="#666"; ctx.font="8px 'Press Start 2P'"; ctx.fillText("FECHAR", 120, 305);
       }
   }
